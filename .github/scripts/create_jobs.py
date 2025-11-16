@@ -1,6 +1,7 @@
 import os
 import json
 import requests
+from textwrap import dedent
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
@@ -11,68 +12,111 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
 FILES_URL = f"{SUPABASE_URL}/rest/v1/files_manifest"
 JOBS_URL = f"{SUPABASE_URL}/rest/v1/jobs"
 
-headers = {
+HEADERS = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
     "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
     "Content-Type": "application/json",
 }
 
 
-def fetch_some_files():
+BATCH_SIZE = 20  # up to 20 files per job
+
+
+def fetch_pending_files(limit=200):
     """
-    Fetch up to 20 files from files_manifest, regardless of status.
-    This is just to prove the connection works and that we see rows.
+    Fetch up to `limit` files with status = 'pending'.
     """
     params = {
         "select": "id,path,language,kind,status",
-        "limit": "20",
+        "status": "eq.pending",
+        "limit": str(limit),
     }
-    resp = requests.get(FILES_URL, headers=headers, params=params)
+    resp = requests.get(FILES_URL, headers=HEADERS, params=params)
     print("FILES GET URL:", resp.url)
-    print("FILES status code:", resp.status_code)
-    print("FILES response (first 500 chars):")
-    print(resp.text[:500])
+    print("FILES status:", resp.status_code)
+    print("FILES response (first 300 chars):", resp.text[:300])
     resp.raise_for_status()
     return resp.json()
 
 
-def create_job(file_row):
-    prompt = f"""
-You are converting a file from {file_row['language']} to <TARGET_LANGUAGE>.
-IMPORTANT RULES:
-- Do NOT add new features.
-- Keep the same behavior and inputs/outputs.
-- Keep the same API surface unless explicitly impossible.
-- Output ONLY <TARGET_LANGUAGE> code, no explanations.
+def chunk_list(items, size):
+    for i in range(0, len(items), size):
+        yield items[i : i + size]
 
-Context:
-- Source file path: {file_row['path']}
-- Source language: {file_row['language']}
-- Kind: {file_row['kind']}
-"""
+
+def build_prompt_for_batch(files_batch):
+    """
+    Build a single Gemini prompt for 15–20 files.
+    You will still paste the code manually, but this tells Gemini
+    which files and languages are involved.
+    """
+    file_lines = []
+    for idx, f in enumerate(files_batch, start=1):
+        file_lines.append(
+            f"{idx}. path={f['path']} | language={f.get('language') or 'unknown'} | kind={f.get('kind') or 'source'}"
+        )
+
+    files_info = "\n".join(file_lines)
+
+    prompt = dedent(
+        f"""
+        You are converting multiple source files to <TARGET_LANGUAGE>.
+
+        RULES (IMPORTANT):
+        - Do NOT add new features.
+        - Preserve the behavior and public APIs as much as possible.
+        - If a file's language is 'unknown', infer from the syntax.
+        - Output ONLY <TARGET_LANGUAGE> code blocks for each file, no explanations.
+        - Keep file separation clear in your output (e.g. comments like // FILE 1: path).
+
+        FILES IN THIS BATCH:
+        {files_info}
+
+        I will paste the contents of these files below in order, clearly separated.
+        For each file, return the converted <TARGET_LANGUAGE> code, in the same order.
+        """
+    ).strip()
+
+    return prompt
+
+
+def create_job_for_batch(files_batch):
+    if not files_batch:
+        return
+
+    prompt = build_prompt_for_batch(files_batch)
+
+    first_file = files_batch[0]
+    file_paths = [f["path"] for f in files_batch]
 
     payload = {
-        "file_id": file_row["id"],
+        "file_id": first_file["id"],   # keep FK
         "status": "queued",
         "prompt": prompt,
+        "file_paths": file_paths,      # jsonb array
     }
-    resp = requests.post(JOBS_URL, headers=headers, data=json.dumps(payload))
-    print(f"JOB POST status for {file_row['path']}: {resp.status_code}")
+
+    resp = requests.post(JOBS_URL, headers=HEADERS, data=json.dumps(payload))
+    print("JOB POST status:", resp.status_code)
     print("JOB POST response (first 300 chars):", resp.text[:300])
     resp.raise_for_status()
+    print(f"Created batch job for {len(files_batch)} files")
+
+
+def main():
+    files = fetch_pending_files(limit=200)
+    print(f"Fetched {len(files)} pending files")
+
+    if not files:
+        print("No pending files found.")
+        return
+
+    for batch in chunk_list(files, BATCH_SIZE):
+        print("Creating job for batch of size:", len(batch))
+        create_job_for_batch(batch)
 
 
 if __name__ == "__main__":
-    print("=== Starting job generator ===")
-    files = fetch_some_files()
-    print(f"Fetched {len(files)} files from files_manifest")
-
-    if not files:
-        print("No files returned from Supabase. Check table and RLS.")
-    else:
-        for f in files:
-            print("Creating job for:", f["path"])
-            create_job(f)
-
-    print("=== Job generator finished ===")
-
+    print("=== Starting batch job generator ===")
+    main()
+    print("=== Done ===")
