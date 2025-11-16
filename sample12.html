@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>St. Gemini Hospital - Management Dashboard</title>
+    <!-- We will use a modern font, Inter -->
+    <link rel_pre_FE="preconnect" href="https://fonts.googleapis.com">
+    <link rel_pre_FE="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- We will use Phosphor Icons for a clean, modern look -->
+    <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+
+    <!-- 
+    ====================================================================
+    STYLESHEET (CSS)
+    All styles for the entire single-page application are contained here.
+    ====================================================================
+    -->
+    <style>
+        /* --- 1. CSS Reset & Variables --- */
+        :root {
+            --primary-color: #4a90e2;
+            --primary-dark: #3a7bc8;
+            --secondary-color: #50e3c2;
+            --danger-color: #e24a4a;
+            --warning-color: #f5a623;
+            --success-color: #7ed321;
+            
+            --bg-color: #f4f7fa;
+            --sidebar-bg: #ffffff;
+            --content-bg: #ffffff;
+            --text-color: #333333;
+            --text-light: #666666;
+            --border-color: #e1e4e8;
+            
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            --border-radius: 8px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- 2. Main Layout --- */
+        .dashboard-container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            flex-shrink: 0;
+            transition: width 0.3s ease;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .sidebar-header i {
+            font-size: 32px;
+            color: var(--primary-color);
+        }
+
+        .sidebar-header h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .sidebar-nav {
+            flex-grow: 1;
+        }
+
+        .nav-list {
+            list-style: none;
+        }
+
+        .nav-item {
+            margin-bottom: 8px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 16px;
+            border-radius: var(--border-radius);
+            text-decoration: none;
+            color: var(--text-light);
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .nav-link i {
+            font-size: 22px;
+        }
+
+        .nav-link:hover {
+            background-color: var(--bg-color);
+            color: var(--primary-color);
+        }
+
+        .nav-link.active {
+            background-color: var(--primary-color);
+            color: #ffffff;
+            box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
+        }
+
+        .main-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 32px;
+        }
+
+        .view-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .view-header h2 {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .view-content {
+            display: grid;
+            gap: 24px;
+        }
+
+        /* --- 3. Components --- */
+        .button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border: none;
+            border-radius: var(--border-radius);
+            background-color: var(--primary-color);
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            text-decoration: none;
+        }
+
+        .button:hover {
+            background-color: var(--primary-dark);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .button.secondary {
+            background: var(--bg-color);
+            color: var(--text-light);
+            border: 1px solid var(--border-color);
+        }
+        
+        .button.secondary:hover {
+            background: var(--border-color);
+            color: var(--text-color);
+        }
+
+        .button.danger {
+            background-color: var(--danger-color);
+        }
+        
+        .button.danger:hover {
+            background-color: #c83a3a;
+        }
+        
+        .button i {
+            font-size: 18px;
+        }
+        
+        .card {
+            background: var(--content-bg);
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .card-body {
+            padding: 24px;
+        }
+        
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+        }
+        
+        .stat-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 20px;
+            background: var(--bg-color);
+            border-radius: var(--border-radius);
+        }
+        
+        .stat-icon {
+            font-size: 28px;
+            padding: 12px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+        }
+        .stat-icon.blue { background: #eaf2fd; color: #4a90e2; }
+        .stat-icon.green { background: #eafaf5; color: #50e3c2; }
+        .stat-icon.yellow { background: #fef8e7; color: #f5a623; }
+        .stat-icon.red { background: #fdeaea; color: #e24a4a; }
+        
+        .stat-info h4 {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .stat-info p {
+            font-size: 14px;
+            color: var(--text-light);
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .data-table th, .data-table td {
+            padding: 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .data-table th {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+        }
+        
+        .data-table td {
+            font-size: 14px;
+        }
+        
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .data-table tr:hover {
+            background-color: var(--bg-color);
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+        
+        .status-badge.stable { background: #eafaf5; color: #3cb371; }
+        .status-badge.critical { background: #fdeaea; color: #e24a4a; }
+        .status-badge.monitoring { background: #fef8e7; color: #f5a623; }
+        .status-badge.discharged { background: #f4f7fa; color: #666666; }
+        .status-badge.admitted { background: #eaf2fd; color: #4a90e2; }
+
+        .status-badge.available { background: #eafaf5; color: #3cb371; }
+        .status-badge.unavailable { background: #fdeaea; color: #e24a4a; }
+        .status-badge.in-use { background: #fef8e7; color: #f5a623; }
+        
+        /* --- 4. Modals & Loaders --- */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+        }
+        
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal-content {
+            background: #ffffff;
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: scale(0.95);
+            transition: var(--transition);
+        }
+        
+        .modal-overlay.visible .modal-content {
+            transform: scale(1);
+        }
+        
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .modal-close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-light);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .modal-close-btn:hover {
+            color: var(--danger-color);
+        }
+        
+        .modal-body {
+            padding: 24px;
+        }
+        
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            transition: var(--transition);
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .loader-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease;
+        }
+        
+        .loader-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 5px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .conflict-warning {
+            padding: 12px;
+            background: #fef8e7;
+            border: 1px solid var(--warning-color);
+            color: #c48208;
+            border-radius: var(--border-radius);
+            margin-top: 16px;
+            display: none;
+        }
+        .conflict-warning.visible {
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- 
+    ====================================================================
+    HTML STRUCTURE
+    This is the skeleton of the application. All content is
+    dynamically rendered into `#main-content-area` by JavaScript.
+    ====================================================================
+    -->
+
+    <!-- Global Loader -->
+    <div class="loader-overlay" id="global-loader">
+        <div class="loader"></div>
+    </div>
+
+    <!-- Main Application Layout -->
+    <div class="dashboard-container">
+        
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <i class="ph-fill ph-first-aid-kit"></i>
+                <h1>St. Gemini</h1>
+            </div>
+            
+            <ul class="sidebar-nav nav-list">
+                <li class="nav-item">
+                    <a href="#dashboard" class="nav-link active" data-view="dashboard">
+                        <i class="ph-fill ph-gauge"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#patients" class="nav-link" data-view="patients">
+                        <i class="ph-fill ph-users"></i>
+                        <span>Patients</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#doctors" class="nav-link" data-view="doctors">
+                        <i class="ph-fill ph-user-doctor"></i>
+                        <span>Doctors</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#wards" class="nav-link" data-view="wards">
+                        <i class="ph-fill ph-bed"></i>
+                        <span>Wards</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#resources" class="nav-link" data-view="resources">
+                        <i class="ph-fill ph-heartbeat"></i>
+                        <span>Resources</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#scheduling" class="nav-link" data-view="scheduling">
+                        <i class="ph-fill ph-calendar"></i>
+                        <span>Scheduling</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <!-- Main Content Area -->
+        <main class="main-content" id="main-content-area">
+            <!-- Dynamic content will be rendered here by JavaScript -->
+        </main>
+
+    </div>
+
+    <!-- 
+    Modal for forms (e.g., Add Patient, Schedule Procedure)
+    This is a template that JavaScript will populate and show.
+    -->
+    <div class="modal-overlay" id="main-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Modal Title</h3>
+                <button class="modal-close-btn" id="modal-close-btn">
+                    <i class="ph-fill ph-x"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Dynamic form content will be injected here -->
+            </div>
+            <div class="modal-footer" id="modal-footer">
+                <button class="button secondary" id="modal-cancel-btn">Cancel</button>
+                <button class="button" id="modal-confirm-btn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 
+    ====================================================================
+    JAVASCRIPT LOGIC
+    This single script block contains the entire application's logic.
+    - Mock Database & API
+    - Global State Management
+    - Complex Business Logic (Interdependent)
+    - Rendering Engine
+    - Event Listeners
+    ====================================================================
+    -->
+    <script>
+        /**
+         * ==================================================================
+         * SCRIPT EXECUTION STARTS HERE
+         * ==================================================================
+         */
+
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- 1. CONFIGURATION ---
+            
+            /**
+             * @type {number} Simulates network latency.
+             */
+            const API_LATENCY = 500;
+
+            /**
+             * @type {object} Global state object. The entire UI is a function of this state.
+             * All business logic MUTATES this state.
+             * All rendering functions READ from this state.
+             * This creates a primary, massive interdependency.
+             */
+            let state = {
+                currentView: 'dashboard',
+                isLoading: true,
+                patients: [],
+                doctors: [],
+                wards: [],
+                resources: [],
+                appointments: [],
+            };
+
+            // --- 2. MOCK DATABASE ---
+            // This is the "single source of truth" simulating a remote database.
+            // The Mock API layer will read from and write to this.
+            
+            const MOCK_DB = {
+                patients: [
+                    { id: 'p1', name: 'John Doe', age: 45, gender: 'Male', condition: 'Coronary Artery Disease', status: 'stable', wardId: 'w1', doctorId: 'd1', history: [] },
+                    { id: 'p2', name: 'Jane Smith', age: 32, gender: 'Female', condition: 'Appendicitis', status: 'critical', wardId: 'w2', doctorId: 'd2', history: [] },
+                    { id: 'p3', name: 'Robert Brown', age: 67, gender: 'Male', condition: 'Pneumonia', status: 'monitoring', wardId: 'w1', doctorId: 'd1', history: [] },
+                    { id: 'p4', name: 'Emily Davis', age: 28, gender: 'Female', condition: 'Broken Femur', status: 'stable', wardId: 'w3', doctorId: 'd3', history: [] },
+                    { id: 'p5', name: 'Michael Wilson', age: 55, gender: 'Male', condition: 'Awaiting discharge', status: 'discharged', wardId: null, doctorId: 'd1', history: [] },
+                ],
+                doctors: [
+                    { id: 'd1', name: 'Dr. Alice Grey', specialty: 'Cardiology' },
+                    { id: 'd2', name: 'Dr. Ben Carter', specialty: 'General Surgery' },
+                    { id: 'd3', name: 'Dr. Chloe Yang', specialty: 'Orthopedics' },
+                ],
+                wards: [
+                    { id: 'w1', name: 'Cardiology', capacity: 20, current: 2 },
+                    { id: 'w2', name: 'Surgical', capacity: 15, current: 1 },
+                    { id: 'w3', name: 'Orthopedics', capacity: 18, current: 1 },
+                    { id: 'w4', name: 'General Medicine', capacity: 30, current: 0 },
+                ],
+                resources: [ // e.g., MRI machines, Operating Rooms
+                    { id: 'r1', name: 'Operating Room 1', type: 'OR', status: 'available' },
+                    { id: 'r2', name: 'Operating Room 2', type: 'OR', status: 'available' },
+                    { id: 'r3', name: 'MRI-01', type: 'Imaging', status: 'available' },
+                    { id: 'r4', name: 'CT Scanner', type: 'Imaging', status: 'in-use' },
+                ],
+                appointments: [
+                    { id: 'a1', patientId: 'p2', doctorId: 'd2', resourceId: 'r1', procedure: 'Appendectomy', start: new Date(new Date().setHours(14, 0, 0, 0)).toISOString(), end: new Date(new Date().setHours(16, 0, 0, 0)).toISOString() },
+                    { id: 'a2', patientId: 'p4', doctorId: 'd3', resourceId: 'r2', procedure: 'Femur Repair', start: new Date(new Date().setHours(15, 0, 0, 0)).toISOString(), end: new Date(new Date().setHours(18, 0, 0, 0)).toISOString() },
+                ],
+            };
+            
+            // Initialize resource status based on appointments
+            MOCK_DB.appointments.forEach(appt => {
+                const resource = MOCK_DB.resources.find(r => r.id === appt.resourceId);
+                if (resource && new Date(appt.end) > new Date()) {
+                    resource.status = 'in-use';
+                }
+            });
+
+
+            // --- 3. MOCK API LAYER ---
+            // This layer simulates asynchronous fetching and saving of data.
+            // All business logic MUST use this layer, creating a dependency.
+            
+            /**
+             * Base function to simulate an API call.
+             * @param {function} dbOperation - The operation to perform on MOCK_DB.
+             * @returns {Promise<any>}
+             */
+            const mockApiCall = (dbOperation) => {
+                return new Promise((resolve, reject) => {
+                    setTimeout(() => {
+                        try {
+                            const result = dbOperation();
+                            // Deep clone to prevent mutation by reference
+                            resolve(JSON.parse(JSON.stringify(result)));
+                        } catch (error) {
+                            reject(error);
+                        }
+                    }, API_LATENCY);
+                });
+            };
+
+            // --- "SQL-like" Query Functions (Dependencies for logic) ---
+            
+            const api = {
+                /** Fetches all data to initialize the app state. */
+                fetchAll: () => mockApiCall(() => MOCK_DB),
+                
+                /** Fetches all patients. */
+                fetchPatients: () => mockApiCall(() => MOCK_DB.patients),
+                
+                /** Fetches all doctors. */
+                fetchDoctors: () => mockApiCall(() => MOCK_DB.doctors),
+                
+                /** Fetches all wards. */
+                fetchWards: () => mockApiCall(() => MOCK_DB.wards),
+                
+                /** Fetches all resources. */
+                fetchResources: () => mockApiCall(() => MOCK_DB.resources),
+                
+                /** Fetches all appointments. */
+                fetchAppointments: () => mockApiCall(() => MOCK_DB.appointments),
+                
+                /** Saves a new patient. */
+                savePatient: (patient) => mockApiCall(() => {
+                    patient.id = 'p' + (MOCK_DB.patients.length + 1);
+                    MOCK_DB.patients.push(patient);
+                    if (patient.wardId) {
+                        const ward = MOCK_DB.wards.find(w => w.id === patient.wardId);
+                        if(ward) ward.current++;
+                    }
+                    return patient;
+                }),
+                
+                /** Saves a new appointment. */
+                saveAppointment: (appointment) => mockApiCall(() => {
+                    appointment.id = 'a' + (MOCK_DB.appointments.length + 1);
+                    MOCK_DB.appointments.push(appointment);
+                    // Update resource status
+                    const resource = MOCK_DB.resources.find(r => r.id === appointment.resourceId);
+                    if (resource) resource.status = 'in-use';
+                    return appointment;
+                }),
+                
+                /** Updates a patient's record. */
+                updatePatient: (updatedPatient) => mockApiCall(() => {
+                    const index = MOCK_DB.patients.findIndex(p => p.id === updatedPatient.id);
+                    if (index === -1) throw new Error('Patient not found');
+                    
+                    // Check for ward change logic (dependency)
+                    const oldPatient = MOCK_DB.patients[index];
+                    if (oldPatient.wardId !== updatedPatient.wardId) {
+                        if (oldPatient.wardId) {
+                            const oldWard = MOCK_DB.wards.find(w => w.id === oldPatient.wardId);
+                            if (oldWard) oldWard.current--;
+                        }
+                        if (updatedPatient.wardId) {
+                            const newWard = MOCK_DB.wards.find(w => w.id === updatedPatient.wardId);
+                            if (newWard) newWard.current++;
+                        }
+                    }
+                    
+                    MOCK_DB.patients[index] = { ...oldPatient, ...updatedPatient };
+                    return MOCK_DB.patients[index];
+                }),
+            };
+
+            // --- 4. GLOBAL STATE & UI HELPERS ---
+            
+            const mainContent = document.getElementById('main-content-area');
+            const globalLoader = document.getElementById('global-loader');
+            const mainModal = document.getElementById('main-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            const modalFooter = document.getElementById('modal-footer');
+            const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+            const modalCancelBtn = document.getElementById('modal-cancel-btn');
+            
+            /**
+             * Toggles the global loading spinner.
+             * @param {boolean} isLoading 
+             */
+            const setGlobalLoading = (isLoading) => {
+                state.isLoading = isLoading;
+                globalLoader.classList.toggle('visible', isLoading);
+            };
+
+            /**
+             * Updates the global state and triggers a re-render of the current view.
+             * This is the heart of the UI-state dependency.
+             * @param {object} newState - The partial state to merge.
+             */
+            const setState = (newState) => {
+                state = { ...state, ...newState };
+                console.log('New state:', state);
+                // Re-render the currently active view
+                renderView(state.currentView);
+            };
+
+            /**
+             * Opens the global modal.
+             * @param {string} title - The title for the modal.
+             * @param {string} bodyHtml - The HTML content for the modal body.
+             * @param {function} onConfirm - The function to run on confirm.
+             * @param {string} confirmText - The text for the confirm button.
+             */
+            const showModal = (title, bodyHtml, onConfirm, confirmText = 'Confirm') => {
+                modalTitle.textContent = title;
+                modalBody.innerHTML = bodyHtml;
+                modalConfirmBtn.textContent = confirmText;
+                
+                // This is a handler-dependency. The modal's confirm button
+                // is dependent on the `onConfirm` function passed in.
+                
+                // Clone and replace to remove old listeners
+                const newConfirmBtn = modalConfirmBtn.cloneNode(true);
+                newConfirmBtn.textContent = confirmText;
+                newConfirmBtn.addEventListener('click', onConfirm);
+                modalConfirmBtn.parentNode.replaceChild(newConfirmBtn, modalConfirmBtn);
+                // Update the global reference
+                modalConfirmBtn = newConfirmBtn;
+                
+                mainModal.classList.add('visible');
+            };
+
+            /** Hides the global modal. */
+            const hideModal = () => {
+                mainModal.classList.remove('visible');
+                modalBody.innerHTML = '';
+            };
+
+            // --- 5. CORE BUSINESS LOGIC (Complex & Interdependent) ---
+            // This is where functions depend on other functions and
+            // simulate complex, SQL-like transactional logic.
+            
+            /**
+             * Finds an available bed in a specific ward or any ward.
+             * "SQL-like" dependency: Depends on state.wards.
+             * @param {string} [wardId] - The preferred ward.
+             * @returns {string|null} The ID of the ward with space.
+             */
+            const findAvailableBed = (wardId) => {
+                if (wardId) {
+                    const ward = state.wards.find(w => w.id === wardId);
+                    if (ward && ward.current < ward.capacity) return ward.id;
+                }
+                // If preferred ward is full or not specified, find *any*
+                const availableWard = state.wards.find(w => w.current < w.capacity);
+                return availableWard ? availableWard.id : null;
+            };
+
+            /**
+             * Gets all appointments for a specific doctor, resource, or patient.
+             * "SQL-like" dependency: Depends on state.appointments.
+             * @param {object} criteria - { doctorId, resourceId, patientId }
+             * @returns {Array} A list of appointments.
+             */
+            const getSchedule = (criteria) => {
+                return state.appointments.filter(appt => {
+                    if (criteria.doctorId && appt.doctorId === criteria.doctorId) return true;
+                    if (criteria.resourceId && appt.resourceId === criteria.resourceId) return true;
+                    if (criteria.patientId && appt.patientId === criteria.patientId) return true;
+                    return false;
+                });
+            };
+
+            /**
+             * Checks if a new time slot conflicts with an existing schedule.
+             * This is a core dependency for all scheduling logic.
+             * @param {Array} schedule - The existing appointments for the entity.
+             * @param {string} newStart - The new start time (ISO string).
+             * @param {string} newEnd - The new end time (ISO string).
+             * @returns {object|null} The conflicting appointment, or null.
+             */
+            const checkScheduleConflict = (schedule, newStart, newEnd) => {
+                const nStart = new Date(newStart).getTime();
+                const nEnd = new Date(newEnd).getTime();
+                
+                return schedule.find(appt => {
+                    const aStart = new Date(appt.start).getTime();
+                    const aEnd = new Date(appt.end).getTime();
+                    
+                    // Check for overlap
+                    // (StartA < EndB) and (EndA > StartB)
+                    return (aStart < nEnd) && (aEnd > nStart);
+                });
+            };
+            
+            /**
+             * **COMPLEX INTERDEPENDENT FUNCTION**
+             * Attempts to schedule a new procedure.
+             * This function simulates a complex transaction with multiple
+             * dependencies and potential failure points.
+             *
+             * **FUNCTIONAL INTERDEPENDENCIES:**
+             * 1. Depends on `getSchedule` to fetch schedules.
+             * 2. Depends on `checkScheduleConflict` to check all 3 entities.
+             * 3. Depends on `api.saveAppointment` to save the record.
+             * 4. Depends on `setState` to update the UI.
+             *
+             * @param {string} patientId
+             * @param {string} doctorId
+             * @param {string} resourceId
+             * @param {string} procedure
+             * @param {string} start
+             * @param {string} end
+             * @returns {Promise<{success: boolean, message: string}>}
+             */
+            const scheduleNewProcedure = async (patientId, doctorId, resourceId, procedure, start, end) => {
+                try {
+                    // 1. Get all dependent schedules
+                    //    Dependency: getSchedule()
+                    const patientSchedule = getSchedule({ patientId });
+                    const doctorSchedule = getSchedule({ doctorId });
+                    const resourceSchedule = getSchedule({ resourceId });
+                    
+                    // 2. Check for conflicts
+                    //    Dependency: checkScheduleConflict()
+                    let conflict;
+                    
+                    conflict = checkScheduleConflict(patientSchedule, start, end);
+                    if (conflict) {
+                        return { success: false, conflict: true, message: `Patient is already scheduled for "${conflict.procedure}" at this time.` };
+                    }
+                    
+                    conflict = checkScheduleConflict(doctorSchedule, start, end);
+                    if (conflict) {
+                        return { success: false, conflict: true, message: `Doctor is unavailable (scheduled for "${conflict.procedure}").` };
+                    }
+                    
+                    conflict = checkScheduleConflict(resourceSchedule, start, end);
+                    if (conflict) {
+                        return { success: false, conflict: true, message: `Resource is unavailable (booked for "${conflict.procedure}").` };
+                    }
+                    
+                    // 3. All checks passed. Save the appointment.
+                    //    Dependency: api.saveAppointment()
+                    setGlobalLoading(true);
+                    const newAppointment = { patientId, doctorId, resourceId, procedure, start, end };
+                    const savedAppointment = await api.saveAppointment(newAppointment);
+                    
+                    // 4. Update the global state
+                    //    Dependency: setState()
+                    setState({
+                        appointments: [...state.appointments, savedAppointment],
+                        resources: state.resources.map(r => 
+                            r.id === resourceId ? { ...r, status: 'in-use' } : r
+                        ),
+                    });
+                    
+                    return { success: true, message: 'Procedure scheduled successfully!' };
+                    
+                } catch (error) {
+                    console.error('Error scheduling procedure:', error);
+                    return { success: false, conflict: false, message: 'An internal error occurred. Please try again.' };
+                } finally {
+                    setGlobalLoading(false);
+                }
+            };
+
+            // --- 6. RENDERING ENGINE (UI - State Dependency) ---
+            // These functions are 100% dependent on the `state` object.
+            // They read from `state` to build the HTML.
+            
+            /**
+             * Renders the main dashboard view.
+             * Depends on: `state.patients`, `state.doctors`, `state.wards`, `state.resources`.
+             */
+            const renderDashboardView = () => {
+                const patientsCount = state.patients.filter(p => p.status !== 'discharged').length;
+                const doctorsCount = state.doctors.length;
+                const bedOccupancy = state.wards.reduce((acc, w) => acc + w.current, 0);
+                const bedTotal = state.wards.reduce((acc, w) => acc + w.capacity, 0);
+                const occupancyRate = bedTotal > 0 ? ((bedOccupancy / bedTotal) * 100).toFixed(1) : 0;
+                const availableResources = state.resources.filter(r => r.status === 'available').length;
+                
+                const recentAppointments = state.appointments
+                    .sort((a, b) => new Date(b.start) - new Date(a.start))
+                    .slice(0, 5);
+
+                mainContent.innerHTML = `
+                    <div class="view-header">
+                        <h2>Dashboard</h2>
+                    </div>
+                    <div class="view-content">
+                        <div class="stat-grid">
+                            <div class="stat-card">
+                                <i class="stat-icon blue ph-fill ph-users"></i>
+                                <div class="stat-info">
+                                    <h4>${patientsCount}</h4>
+                                    <p>Active Patients</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <i class="stat-icon green ph-fill ph-user-doctor"></i>
+                                <div class="stat-info">
+                                    <h4>${doctorsCount}</h4>
+                                    <p>Doctors</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <i class="stat-icon yellow ph-fill ph-bed"></i>
+                                <div class="stat-info">
+                                    <h4>${occupancyRate}%</h4>
+                                    <p>Bed Occupancy (${bedOccupancy}/${bedTotal})</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <i class="stat-icon red ph-fill ph-heartbeat"></i>
+                                <div class="stat-info">
+                                    <h4>${availableResources}</h4>
+                                    <p>Available Resources</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Upcoming Schedule</h3>
+                            </div>
+                            <div class="card-body" style="padding: 0;">
+                                ${renderAppointmentsTable(recentAppointments)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            /**
+             * Renders the patients list view.
+             * Depends on: `state.patients`, `state.doctors`, `state.wards`.
+             */
+            const renderPatientView = () => {
+                mainContent.innerHTML = `
+                    <div class="view-header">
+                        <h2>Patients</h2>
+                        <button class="button" id="add-patient-btn">
+                            <i class="ph-fill ph-plus-circle"></i>
+                            <span>Add Patient</span>
+                        </button>
+                    </div>
+                    <div class="view-content">
+                        <div class="card">
+                            <div class="card-body" style="padding: 0;">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Age</th>
+                                            <th>Condition</th>
+                                            <th>Doctor</th>
+                                            <th>Ward</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${state.patients.map(p => {
+                                            const doctor = state.doctors.find(d => d.id === p.doctorId);
+                                            const ward = state.wards.find(w => w.id === p.wardId);
+                                            return `
+                                                <tr>
+                                                    <td>${p.name}</td>
+                                                    <td>${p.age}</td>
+                                                    <td>${p.condition}</td>
+                                                    <td>${doctor ? doctor.name : 'N/A'}</td>
+                                                    <td>${ward ? ward.name : 'N/A'}</td>
+                                                    <td><span class="status-badge ${p.status}">${p.status}</span></td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Add event listener (dependency)
+                document.getElementById('add-patient-btn').addEventListener('click', showAddPatientModal);
+            };
+            
+            /**
+             * Renders the doctors list view.
+             * Depends on: `state.doctors`.
+             */
+            const renderDoctorView = () => {
+                mainContent.innerHTML = `
+                    <div class="view-header">
+                        <h2>Doctors</h2>
+                    </div>
+                    <div class="view-content">
+                        <div class="card">
+                            <div class="card-body" style="padding: 0;">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Specialty</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${state.doctors.map(d => `
+                                            <tr>
+                                                <td>${d.name}</td>
+                                                <td>${d.specialty}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+            
+            /**
+             * Renders the wards list view.
+             * Depends on: `state.wards`.
+             */
+            const renderWardView = () => {
+                mainContent.innerHTML = `
+                    <div class="view-header">
+                        <h2>Wards</h2>
+                    </div>
+                    <div class="view-content">
+                        <div class="card">
+                            <div class="card-body" style="padding: 0;">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Ward Name</th>
+                                            <th>Occupancy</th>
+                                            <th>Capacity</th>
+                                            <th>Availability</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${state.wards.map(w => {
+                                            const availability = ((w.current / w.capacity) * 100);
+                                            return `
+                                                <tr>
+                                                    <td>${w.name}</td>
+                                                    <td>${w.current}</td>
+                                                    <td>${w.capacity}</td>
+                                                    <td>${availability.toFixed(1)}%</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+            
+            /**
+             * Renders the resources list view.
+             * Depends on: `state.resources`.
+             */
+            const renderResourceView = () => {
+                mainContent.innerHTML = `
+                    <div class="view-header">
+                        <h2>Resources</h2>
+                    </div>
+                    <div class="view-content">
+                        <div class="card">
+                            <div class="card-body" style="padding: 0;">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Resource Name</th>
+                                            <th>Type</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${state.resources.map(r => `
+                                            <tr>
+                                                <td>${r.name}</td>
+                                                <td>${r.type}</td>
+                                                <td><span class="status-badge ${r.status}">${r.status.replace('-', ' ')}</span></td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+            
+            /**
+             * Renders the main scheduling view.
+             * Depends on: `state.appointments` and all other entities.
+             */
+            const renderSchedulingView = () => {
+                mainContent.innerHTML = `
+                    <div class="view-header">
+                        <h2>Scheduling</h2>
+                        <button class="button" id="schedule-procedure-btn">
+                            <i class="ph-fill ph-calendar-plus"></i>
+                            <span>Schedule Procedure</span>
+                        </button>
+                    </div>
+                    <div class="view-content">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Full Schedule</h3>
+                            </div>
+                            <div class="card-body" style="padding: 0;">
+                                ${renderAppointmentsTable(state.appointments)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Add event listener (dependency)
+                document.getElementById('schedule-procedure-btn').addEventListener('click', showScheduleProcedureModal);
+            };
+
+            /**
+             * Renders a reusable appointments table.
+             * This is a "sub-component" function, depended on by other renders.
+             * Depends on: `state` (for lookups).
+             * @param {Array} appointments - The list of appointments to render.
+             * @returns {string} HTML string for the table.
+             */
+            const renderAppointmentsTable = (appointments) => {
+                if (appointments.length === 0) {
+                    return '<div class="card-body"><p>No appointments found.</p></div>';
+                }
+                
+                return `
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Patient</th>
+                                <th>Doctor</th>
+                                <th>Procedure</th>
+                                <th>Resource</th>
+                                <th>Start</th>
+                                <th>End</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${appointments.map(a => {
+                                const patient = state.patients.find(p => p.id === a.patientId);
+                                const doctor = state.doctors.find(d => d.id === a.doctorId);
+                                const resource = state.resources.find(r => r.id === a.resourceId);
+                                return `
+                                    <tr>
+                                        <td>${patient ? patient.name : 'N/A'}</td>
+                                        <td>${doctor ? doctor.name : 'N/A'}</td>
+                                        <td>${a.procedure}</td>
+                                        <td>${resource ? resource.name : 'N/A'}</td>
+                                        <td>${formatDateTime(a.start)}</td>
+                                        <td>${formatDateTime(a.end)}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+            };
+
+            /**
+             * Main view routing function.
+             * This function is the dependency hub for all rendering.
+             * @param {string} view - The view to render.
+             */
+            const renderView = (view) => {
+                state.currentView = view;
+                // Update sidebar active state (UI dependency)
+                document.querySelectorAll('.nav-link').forEach(link => {
+                    link.classList.toggle('active', link.dataset.view === view);
+                });
+                
+                // Call the specific render function
+                switch (view) {
+                    case 'patients': renderPatientView(); break;
+                    case 'doctors': renderDoctorView(); break;
+                    case 'wards': renderWardView(); break;
+                    case 'resources': renderResourceView(); break;
+                    case 'scheduling': renderSchedulingView(); break;
+                    case 'dashboard':
+                    default:
+                        renderDashboardView();
+                }
+            };
+
+            // --- 7. MODAL & FORM LOGIC ---
+            // These functions are dependent on `showModal` and the `api`.
+            
+            /**
+             * Shows the "Add Patient" modal.
+             * Dependency: `showModal`, `handleSavePatient`.
+             */
+            const showAddPatientModal = () => {
+                const doctorOptions = state.doctors.map(d => `<option value="${d.id}">${d.name} (${d.specialty})</option>`).join('');
+                const wardOptions = state.wards.map(w => `<option value="${w.id}">${w.name} (${w.current}/${w.capacity})</option>`).join('');
+                
+                const bodyHtml = `
+                    <form id="add-patient-form">
+                        <div class="form-group">
+                            <label for="name">Full Name</label>
+                            <input type="text" id="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="age">Age</label>
+                            <input type="number" id="age" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="condition">Condition</label>
+                            <input type="text" id="condition" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="doctorId">Assign Doctor</label>
+                            <select id="doctorId">
+                                <option value="">Select Doctor...</option>
+                                ${doctorOptions}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="wardId">Assign Ward</label>
+                            <select id="wardId">
+                                <option value="">Select Ward...</option>
+                                ${wardOptions}
+                            </select>
+                        </div>
+                    </form>
+                `;
+                
+                showModal('Add New Patient', bodyHtml, handleSavePatient, 'Save Patient');
+            };
+            
+            /**
+             * Handles saving a new patient.
+             * Dependency: `api.savePatient`, `setState`, `hideModal`.
+             */
+            const handleSavePatient = async () => {
+                const name = document.getElementById('name').value;
+                const age = document.getElementById('age').value;
+                const condition = document.getElementById('condition').value;
+                const doctorId = document.getElementById('doctorId').value;
+                const wardId = document.getElementById('wardId').value;
+                
+                if (!name || !age || !condition) {
+                    alert('Please fill in all required fields.');
+                    return;
+                }
+                
+                // Check if selected ward is full (Business logic dependency)
+                if (wardId) {
+                    const ward = state.wards.find(w => w.id === wardId);
+                    if (ward && ward.current >= ward.capacity) {
+                        alert('Selected ward is full. Please choose another.');
+                        return;
+                    }
+                }
+                
+                const newPatient = { name, age, condition, doctorId, wardId, status: 'admitted', history: [] };
+                
+                setGlobalLoading(true);
+                try {
+                    const savedPatient = await api.savePatient(newPatient);
+                    // Update state. This will trigger a re-render.
+                    // This creates the full loop: Click -> Modal -> API -> State -> Re-render
+                    setState({
+                        patients: [...state.patients, savedPatient],
+                        wards: state.wards.map(w => 
+                            w.id === wardId ? { ...w, current: w.current + 1 } : w
+                        )
+                    });
+                    hideModal();
+                } catch (error) {
+                    console.error('Failed to save patient:', error);
+                    alert('Error saving patient.');
+                } finally {
+                    setGlobalLoading(false);
+                }
+            };
+            
+            /**
+             * Shows the "Schedule Procedure" modal.
+             * Dependency: `showModal`, `handleScheduleProcedure`.
+             */
+            const showScheduleProcedureModal = () => {
+                const patientOptions = state.patients.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                const doctorOptions = state.doctors.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+                const resourceOptions = state.resources.map(r => `<option value="${r.id}">${r.name} (${r.status})</option>`).join('');
+                
+                const bodyHtml = `
+                    <form id="schedule-form">
+                        <div class="form-group">
+                            <label for="patientId">Patient</label>
+                            <select id="patientId" required>${patientOptions}</select>
+                        </div>
+                        <div class="form-group">
+                            <label for="doctorId">Doctor</label>
+                            <select id="doctorId" required>${doctorOptions}</select>
+                        </div>
+                        <div class="form-group">
+                            <label for="resourceId">Resource</label>
+                            <select id="resourceId" required>${resourceOptions}</select>
+                        </div>
+                        <div class="form-group">
+                            <label for="procedure">Procedure</label>
+                            <input type="text" id="procedure" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="startTime">Start Time</label>
+                            <input type="datetime-local" id="startTime" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="endTime">End Time</label>
+                            <input type="datetime-local" id="endTime" required>
+                        </div>
+                        <div class="conflict-warning" id="conflict-warning"></div>
+                    </form>
+                `;
+                
+                showModal('Schedule New Procedure', bodyHtml, handleScheduleProcedure, 'Schedule');
+                
+                // Add real-time conflict checking (complex dependency)
+                ['patientId', 'doctorId', 'resourceId', 'startTime', 'endTime'].forEach(id => {
+                    document.getElementById(id).addEventListener('change', checkConflictsRealtime);
+                });
+            };
+            
+            /**
+             * Handles the final submission of scheduling.
+             * Dependency: `scheduleNewProcedure`, `hideModal`.
+             */
+            const handleScheduleProcedure = async () => {
+                const patientId = document.getElementById('patientId').value;
+                const doctorId = document.getElementById('doctorId').value;
+                const resourceId = document.getElementById('resourceId').value;
+                const procedure = document.getElementById('procedure').value;
+                const startTime = document.getElementById('startTime').value;
+                const endTime = document.getElementById('endTime').value;
+                
+                if (!patientId || !doctorId || !resourceId || !procedure || !startTime || !endTime) {
+                    alert('Please fill out all fields.');
+                    return;
+                }
+                
+                if (new Date(endTime) <= new Date(startTime)) {
+                    alert('End time must be after start time.');
+                    return;
+                }
+                
+                // This is the call to the most complex interdependent function.
+                const result = await scheduleNewProcedure(patientId, doctorId, resourceId, procedure, startTime, endTime);
+                
+                if (result.success) {
+                    hideModal();
+                    alert(result.message); // Simple notification
+                } else {
+                    // Show the conflict in the modal
+                    const warningEl = document.getElementById('conflict-warning');
+                    warningEl.textContent = result.message;
+                    warningEl.classList.add('visible');
+                }
+            };
+            
+            /**
+             * Checks for conflicts as the user fills the form.
+             * This shows real-time dependency on the business logic.
+             * Dependency: `getSchedule`, `checkScheduleConflict`.
+             */
+            const checkConflictsRealtime = () => {
+                const patientId = document.getElementById('patientId').value;
+                const doctorId = document.getElementById('doctorId').value;
+                const resourceId = document.getElementById('resourceId').value;
+                const startTime = document.getElementById('startTime').value;
+                const endTime = document.getElementById('endTime').value;
+                const warningEl = document.getElementById('conflict-warning');
+                
+                if (!patientId || !doctorId || !resourceId || !startTime || !endTime) {
+                    warningEl.classList.remove('visible');
+                    return;
+                }
+
+                let message = '';
+                let conflict;
+                
+                conflict = checkScheduleConflict(getSchedule({ patientId }), startTime, endTime);
+                if (conflict) message = `Patient conflict: ${conflict.procedure}`;
+                
+                if (!message) {
+                    conflict = checkScheduleConflict(getSchedule({ doctorId }), startTime, endTime);
+                    if (conflict) message = `Doctor conflict: ${conflict.procedure}`;
+                }
+                
+                if (!message) {
+                    conflict = checkScheduleConflict(getSchedule({ resourceId }), startTime, endTime);
+                    if (conflict) message = `Resource conflict: ${conflict.procedure}`;
+                }
+
+                if (message) {
+                    warningEl.textContent = message;
+                    warningEl.classList.add('visible');
+                } else {
+                    warningEl.classList.remove('visible');
+                }
+            };
+
+            // --- 8. UTILITY FUNCTIONS ---
+            
+            /**
+             * Formats an ISO string to a user-friendly date/time.
+             * @param {string} isoString
+             * @returns {string}
+             */
+            const formatDateTime = (isoString) => {
+                const date = new Date(isoString);
+                return date.toLocaleString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric', 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    hour12: true 
+                });
+            };
+
+            // --- 9. EVENT LISTENERS & INITIALIZATION ---
+            
+            /**
+             * Sets up all static event listeners.
+             */
+            const setupEventListeners = () => {
+                // Sidebar navigation
+                document.querySelector('.sidebar-nav').addEventListener('click', (e) => {
+                    const link = e.target.closest('.nav-link');
+                    if (!link) return;
+                    
+                    e.preventDefault();
+                    const view = link.dataset.view;
+                    renderView(view);
+                });
+                
+                // Modal close buttons
+                document.getElementById('modal-close-btn').addEventListener('click', hideModal);
+                document.getElementById('modal-cancel-btn').addEventListener('click', hideModal);
+            };
+
+            /**
+             * Initializes the application.
+             * This is the main entry point.
+             */
+            const initializeApp = async () => {
+                setGlobalLoading(true);
+                try {
+                    // This is the root dependency.
+                    // Nothing works until this `api.fetchAll` resolves.
+                    const allData = await api.fetchAll();
+                    
+                    // Populate the state
+                    state.patients = allData.patients;
+                    state.doctors = allData.doctors;
+                    state.wards = allData.wards;
+                    state.resources = allData.resources;
+                    state.appointments = allData.appointments;
+                    
+                    // Set up event listeners
+                    setupEventListeners();
+                    
+                    // Render the default view
+                    renderView(state.currentView);
+                    
+                } catch (error) {
+                    console.error('Failed to initialize application:', error);
+                    mainContent.innerHTML = '<h2>Failed to load application data. Please refresh.</h2>';
+                } finally {
+                    setGlobalLoading(false);
+                }
+            };
+
+            // --- RUN APPLICATION ---
+            initializeApp();
+            
+        }); // End of DOMContentLoaded
+        
+    </script>
+</body>
+</html>

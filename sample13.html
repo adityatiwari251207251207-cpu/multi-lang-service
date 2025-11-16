@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Physics Simulation - Newton's Cradle</title>
+    <!-- We will use a modern font, Roboto -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <!-- 
+    ====================================================================
+    STYLESHEET (CSS)
+    ====================================================================
+    -->
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #f0f0f0;
+            --primary-color: #4a90e2;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            --border-radius: 8px;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden; /* Prevent scrollbars from canvas */
+        }
+
+        /* Canvas container to hold the 3D scene */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #333 0%, #111 100%);
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* UI Overlay Elements */
+        .ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to the canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+
+        /* Top-left title */
+        .title-card {
+            pointer-events: auto; /* Enable interaction for this element */
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(5px);
+            padding: 16px 24px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .title-card h1 {
+            font-size: 24px;
+            margin: 0;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .title-card p {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            color: #b0b0b0;
+            font-weight: 300;
+        }
+
+        /* Bottom-center controls */
+        .controls-card {
+            pointer-events: auto; /* Enable interaction for this element */
+            display: flex;
+            gap: 16px;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(5px);
+            padding: 16px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin: 0 auto; /* Center horizontally */
+        }
+
+        .button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--border-radius);
+            background-color: var(--primary-color);
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .button:hover {
+            background-color: #3a7bc8;
+            box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+        }
+
+        /* Message for interaction */
+        #message-box {
+            position: fixed;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(74, 144, 226, 0.8);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: var(--border-radius);
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow);
+        }
+
+        #message-box.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Loader */
+        #loader {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            font-weight: 300;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- 
+    ====================================================================
+    HTML STRUCTURE
+    ====================================================================
+    -->
+
+    <!-- Container for the Three.js Canvas -->
+    <div id="canvas-container"></div>
+    
+    <!-- Loading Message -->
+    <div id="loader">Loading 3D Scene & Physics...</div>
+
+    <!-- UI Overlay -->
+    <div class="ui-overlay">
+        
+        <!-- Title Card -->
+        <div class="title-card">
+            <h1>3D Physics Simulation</h1>
+            <p>Newton's Cradle (Drag a ball and release)</p>
+        </div>
+
+        <!-- Controls Card -->
+        <div class="controls-card">
+            <button class="button" id="reset-button">Reset Simulation</button>
+        </div>
+    </div>
+    
+    <!-- Interaction Message Box -->
+    <div id="message-box">Drag a ball to pull it back...</div>
+
+    <!-- 
+    ====================================================================
+    LIBRARIES
+    Loading Three.js (3D rendering) and Cannon-es.js (physics)
+    ====================================================================
+    -->
+    <!-- 
+    REMOVED old script tags. Libraries are now loaded as ES modules
+    in the script block below to fix the errors.
+    -->
+    
+    <!-- 
+    ====================================================================
+    JAVASCRIPT LOGIC
+    This single script block contains the entire application's logic.
+    - Three.js Scene Setup (View)
+    - Cannon-es Physics Setup (Model)
+    - Synchronization Logic (The Core Dependency)
+    - Interaction Logic (Raycasting & Forces)
+    ====================================================================
+    -->
+    <script type="module">
+        /**
+         * ==================================================================
+         * SCRIPT EXECUTION STARTS HERE
+         * ==================================================================
+         */
+
+        // --- ADDED IMPORTS ---
+        // Load libraries as ES modules from jsdelivr
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js';
+        import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.module.js';
+        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/controls/OrbitControls.js';
+        // --- END IMPORTS ---
+
+        // Ensure the entire DOM is loaded
+        window.onload = function() {
+            
+            // --- 1. GLOBAL STATE & CONFIGURATION ---
+
+            const loaderElement = document.getElementById('loader');
+            const canvasContainer = document.getElementById('canvas-container');
+            const messageBox = document.getElementById('message-box');
+            
+            // Three.js (View) core components
+            let scene, camera, renderer, controls;
+            
+            // Cannon-es (Model) core components
+            let world;
+            
+            // **CORE INTERDEPENDENCY**
+            // This array holds the paired view/model objects.
+            // The entire simulation depends on this array for synchronization.
+            // Each object = { mesh: THREE.Mesh, body: CANNON.Body }
+            const spheresAndConstraints = [];
+            
+            // Physics parameters
+            const sphereRadius = 0.5;
+            const sphereMass = 1.0;
+            const numSpheres = 5;
+            const sphereSpacing = sphereRadius * 2.05; // Slightly more than diameter
+            const cradleLength = 4;
+            
+            // Interaction state
+            let isDragging = false;
+            let draggedSphereBody = null; // The CANNON.Body being dragged
+            let dragConstraint = null; // The constraint used to drag
+            let mouse3D; // A THREE.Vector3 for the 3D mouse position
+            
+            // Raycasting (for mouse picking)
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+            
+            // Time tracking for physics simulation
+            let lastTime = 0;
+            const fixedTimeStep = 1 / 60; // 60 FPS
+            
+            
+            // --- 2. INITIALIZATION FUNCTIONS ---
+            
+            /**
+             * Initializes the Three.js (View) scene.
+             * This sets up the camera, lights, and renderer.
+             */
+            function initThreeScene() {
+                console.log("Initializing Three.js scene (View)...");
+                
+                // Create the scene
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x1a1a1a);
+                scene.fog = new THREE.Fog(0x1a1a1a, 10, 50);
+
+                // Create the camera
+                const fov = 75;
+                const aspect = window.innerWidth / window.innerHeight;
+                const near = 0.1;
+                const far = 100;
+                camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+                camera.position.set(0, cradleLength, cradleLength * 2);
+                camera.lookAt(0, 0, 0);
+
+                // Create the renderer
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                canvasContainer.appendChild(renderer.domElement);
+
+                // Add OrbitControls for camera movement
+                // This now uses the imported OrbitControls
+                controls = new OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.1;
+                controls.target.set(0, cradleLength - sphereRadius, 0);
+                controls.update();
+
+                // Add lighting
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+                scene.add(ambientLight);
+
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+                directionalLight.position.set(5, 10, 7.5);
+                directionalLight.castShadow = true;
+                directionalLight.shadow.mapSize.width = 1024;
+                directionalLight.shadow.mapSize.height = 1024;
+                directionalLight.shadow.camera.near = 0.5;
+                directionalLight.shadow.camera.far = 50;
+                scene.add(directionalLight);
+
+                // Create a ground plane (for show)
+                const groundGeo = new THREE.PlaneGeometry(100, 100);
+                const groundMat = new THREE.MeshStandardMaterial({ 
+                    color: 0x222222,
+                    roughness: 0.8,
+                    metalness: 0.2
+                });
+                const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+                groundMesh.rotation.x = -Math.PI / 2;
+                groundMesh.position.y = -sphereRadius * 2; // Below the cradle
+                groundMesh.receiveShadow = true;
+                scene.add(groundMesh);
+                
+                // Create a plane to intersect with mouse
+                // This is invisible but crucial for 3D mouse tracking.
+                mouse3D = new THREE.Vector3();
+                
+                console.log("Three.js scene initialized.");
+            }
+
+            /**
+             * Initializes the Cannon-es (Model) physics world.
+             * This sets up gravity, contact materials, etc.
+             */
+            function initPhysicsWorld() {
+                console.log("Initializing Cannon-es physics (Model)...");
+                
+                // This now uses the imported CANNON object
+                world = new CANNON.World();
+                world.gravity.set(0, -9.82, 0); // Standard gravity
+                world.broadphase = new CANNON.NaiveBroadphase();
+                
+                // Define material properties
+                const defaultMaterial = new CANNON.Material('default');
+                const defaultContactMaterial = new CANNON.ContactMaterial(
+                    defaultMaterial,
+                    defaultMaterial,
+                    {
+                        friction: 0.1,
+                        restitution: 0.95 // High restitution for bounciness
+                    }
+                );
+                world.addContactMaterial(defaultContactMaterial);
+                world.defaultContactMaterial = defaultContactMaterial;
+
+                // Add a physics ground plane (for collision)
+                const groundShape = new CANNON.Plane();
+                const groundBody = new CANNON.Body({ mass: 0 }); // mass 0 = static
+                groundBody.addShape(groundShape);
+                groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+                groundBody.position.y = -sphereRadius * 2;
+                world.addBody(groundBody);
+                
+                console.log("Cannon-es physics initialized.");
+            }
+
+            /**
+             * **COMPLEX INTERDEPENDENT FUNCTION**
+             * Creates the Newton's Cradle.
+             * This function is the core setup dependency.
+             * * **DEPENDENCIES:**
+             * 1. Creates a CANNON.Body (Model).
+             * 2. Creates a THREE.Mesh (View).
+             * 3. Pairs them in the `spheresAndConstraints` array.
+             * 4. Creates CANNON.Constraints (Physics "SQL")
+             * - This is a *structural* dependency. The sphere `Body`
+             * is constrained to a static anchor `Body`.
+             * 5. Adds the Model to `world` and View to `scene`.
+             */
+            function createNewtonCradle() {
+                console.log("Creating Newton's Cradle...");
+                
+                const cradleWidth = (numSpheres - 1) * sphereSpacing;
+                const startX = -cradleWidth / 2;
+                
+                // Create the top bar (for visual reference)
+                const barGeo = new THREE.CylinderGeometry(0.1, 0.1, cradleWidth + 2, 8);
+                const barMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.9, roughness: 0.2 });
+                const barMesh = new THREE.Mesh(barGeo, barMat);
+                barMesh.position.set(0, cradleLength, 0);
+                barMesh.rotation.z = Math.PI / 2;
+                barMesh.castShadow = true;
+                scene.add(barMesh);
+
+                // Sphere materials
+                const sphereGeo = new THREE.SphereGeometry(sphereRadius, 32, 32);
+                const sphereMat = new THREE.MeshStandardMaterial({
+                    color: 0xc0c0c0, // Silver
+                    metalness: 1.0,
+                    roughness: 0.1
+                });
+                
+                const lineMat = new THREE.LineBasicMaterial({ color: 0x999999 });
+
+                for (let i = 0; i < numSpheres; i++) {
+                    const x = startX + i * sphereSpacing;
+                    
+                    // --- 1. Create the Physics Model (CANNON.Body) ---
+                    const anchorBody = new CANNON.Body({ mass: 0 }); // Static anchor
+                    anchorBody.position.set(x, cradleLength, 0);
+                    world.addBody(anchorBody);
+                    
+                    const sphereBody = new CANNON.Body({
+                        mass: sphereMass,
+                        shape: new CANNON.Sphere(sphereRadius),
+                        position: new CANNON.Vec3(x, cradleLength - cradleLength, 0)
+                    });
+                    world.addBody(sphereBody);
+                    
+                    // **CONSTRAINT DEPENDENCY (PointToPoint):**
+                    // This is the "string" of the cradle. It links the sphere
+                    // to the anchor. The entire simulation's logic
+                    // is dependent on this constraint.
+                    const constraint = new CANNON.PointToPointConstraint(
+                        anchorBody, new CANNON.Vec3(0, 0, 0),
+                        sphereBody, new CANNON.Vec3(0, cradleLength, 0) // Pivot is *above* the sphere
+                    );
+                    world.addConstraint(constraint);
+
+                    // --- 2. Create the Visual View (THREE.Mesh) ---
+                    const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
+                    sphereMesh.castShadow = true;
+                    sphereMesh.receiveShadow = true;
+                    // **DEPENDENCY:** The View's initial position is set
+                    // by the Model's initial position.
+                    sphereMesh.position.copy(sphereBody.position);
+                    scene.add(sphereMesh);
+                    
+                    // Create the "string" visual
+                    const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                        new THREE.Vector3(x, cradleLength, 0), // Anchor point
+                        new THREE.Vector3(x, 0, 0)             // Sphere position (will be updated)
+                    ]);
+                    const lineMesh = new THREE.Line(lineGeo, lineMat);
+                    scene.add(lineMesh);
+                    
+                    // --- 3. Create the Interdependency Link ---
+                    // This object pairs the View and the Model.
+                    spheresAndConstraints.push({
+                        mesh: sphereMesh,
+                        body: sphereBody,
+                        line: lineMesh,
+                        anchorPos: new THREE.Vector3(x, cradleLength, 0)
+                    });
+                }
+                
+                console.log(`Created ${numSpheres} spheres.`);
+            }
+            
+            /**
+             * Resets the simulation to its initial state.
+             * This demonstrates the dependency on the initial state.
+             */
+            function resetSimulation() {
+                console.log("Resetting simulation...");
+                const cradleWidth = (numSpheres - 1) * sphereSpacing;
+                const startX = -cradleWidth / 2;
+
+                // Stop any dragging
+                if (dragConstraint) {
+                    world.removeConstraint(dragConstraint);
+                    dragConstraint = null;
+                }
+                draggedSphereBody = null;
+                isDragging = false;
+                
+                // Re-position all spheres
+                for (let i = 0; i < spheresAndConstraints.length; i++) {
+                    const sphere = spheresAndConstraints[i];
+                    const x = startX + i * sphereSpacing;
+                    
+                    // Reset physics body
+                    sphere.body.position.set(x, 0, 0);
+                    sphere.body.velocity.set(0, 0, 0);
+                    sphere.body.angularVelocity.set(0, 0, 0);
+                    sphere.body.wakeUp(); // Wake up the physics body
+                }
+                
+                // Lift the first ball to start
+                liftFirstBall();
+            }
+
+            /**
+             * Lifts the first ball to start the simulation.
+             */
+            function liftFirstBall() {
+                if (spheresAndConstraints.length > 0) {
+                    const firstSphere = spheresAndConstraints[0];
+                    // Apply an initial position change
+                    // (We can't just set position due to the constraint)
+                    // We set it to a position that satisfies the constraint
+                    const liftAngle = Math.PI / 4; // 45 degrees
+                    const x = firstSphere.anchorPos.x - cradleLength * Math.sin(liftAngle);
+                    const y = firstSphere.anchorPos.y - cradleLength * Math.cos(liftAngle);
+                    
+                    firstSphere.body.position.set(x, y, 0);
+                    firstSphere.body.velocity.set(0, 0, 0);
+                    firstSphere.body.angularVelocity.set(0, 0, 0);
+                    firstSphere.body.wakeUp();
+                }
+            }
+            
+            // --- 3. INTERACTION LOGIC (Mouse) ---
+            
+            /**
+             * Handles window resize.
+             * This is a dependency: View (camera/renderer) must update
+             * when the window changes.
+             */
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            /**
+             * Updates the `mouse` vector on move.
+             */
+            function onMouseMove(event) {
+                // Normalize mouse coordinates
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                
+                // **INTERACTION DEPENDENCY:**
+                // If we are dragging, update the 3D position of the mouse.
+                if (isDragging && draggedSphereBody) {
+                    // Project the 2D mouse onto a 3D plane
+                    raycaster.setFromCamera(mouse, camera);
+                    
+                    // We need to find the intersection point in 3D.
+                    // We'll intersect with an invisible plane that
+                    // is at the Z-depth of the dragged ball.
+                    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -draggedSphereBody.position.z);
+                    raycaster.ray.intersectPlane(dragPlane, mouse3D);
+
+                    // Move the drag constraint (and thus the ball)
+                    // The `dragConstraint` is the dependency link.
+                    if (dragConstraint) {
+                        // The constraint's "anchor" is moved by the mouse
+                        dragConstraint.target.copy(mouse3D);
+                    }
+                    
+                    messageBox.classList.add('visible');
+                }
+            }
+
+            /**
+             * Handles mouse down (start drag).
+             *
+             * **COMPLEX INTERACTION DEPENDENCY:**
+             * 1. Uses THREE.Raycaster to find the clicked THREE.Mesh (View).
+             * 2. Searches `spheresAndConstraints` to find the
+             * corresponding CANNON.Body (Model).
+             * 3. Creates a new CANNON.Constraint (Physics) to
+             * link the Model to the mouse position.
+             */
+            function onMouseDown(event) {
+                // Update mouse vector
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                
+                // Update the raycaster
+                raycaster.setFromCamera(mouse, camera);
+                
+                // Get all sphere meshes for intersection test
+                const sphereMeshes = spheresAndConstraints.map(s => s.mesh);
+                const intersects = raycaster.intersectObjects(sphereMeshes);
+
+                if (intersects.length > 0) {
+                    const intersectedMesh = intersects[0].object;
+                    
+                    // **DEPENDENCY LOOKUP:**
+                    // Find the paired {mesh, body} object.
+                    const sphere = spheresAndConstraints.find(s => s.mesh === intersectedMesh);
+                    
+                    if (sphere) {
+                        isDragging = true;
+                        draggedSphereBody = sphere.body;
+                        
+                        // Wake up the physics body
+                        draggedSphereBody.wakeUp();
+
+                        // Get the 3D intersection point
+                        mouse3D.copy(intersects[0].point);
+
+                        // **CONSTRAINT DEPENDENCY (Interaction):**
+                        // Create a temporary constraint to "hold" the ball.
+                        // We create a new, temporary "anchor" body
+                        // that will follow the mouse.
+                        const mouseAnchorBody = new CANNON.Body({ mass: 0 });
+                        mouseAnchorBody.position.copy(mouse3D);
+                        
+                        // This constraint links the clicked sphere body
+                        // to the mouse-following anchor body.
+                        dragConstraint = new CANNON.PointToPointConstraint(
+                            draggedSphereBody,
+                            new CANNON.Vec3(0, 0, 0), // Pivot on sphere center
+                            mouseAnchorBody,
+                            new CANNON.Vec3(0, 0, 0) // Pivot on anchor center
+                        );
+                        world.addConstraint(dragConstraint);
+                        
+                        // Show message
+                        messageBox.classList.add('visible');
+                        controls.enabled = false; // Disable camera controls
+                    }
+                }
+            }
+
+            /**
+             * Handles mouse up (end drag).
+             *
+             * **INTERDEPENDENCY:**
+             * 1. Destroys the temporary CANNON.Constraint.
+             * 2. The physics system (gravity, constraints) is
+             * now dependent on the new position/velocity
+             * imparted by the user's drag.
+             */
+            function onMouseUp(event) {
+                if (isDragging) {
+                    // **DEPENDENCY:** Remove the temporary constraint.
+                    if (dragConstraint) {
+                        world.removeConstraint(dragConstraint);
+                        dragConstraint = null;
+                    }
+                    
+                    // Wake up the body one last time
+                    if (draggedSphereBody) {
+                        draggedSphereBody.wakeUp();
+                    }
+
+                    isDragging = false;
+                    draggedSphereBody = null;
+                    
+                    // Hide message
+                    messageBox.classList.remove('visible');
+                    controls.enabled = true; // Re-enable camera
+                }
+            }
+
+            
+            // --- 4. THE ANIMATION LOOP (The Core Dependency Hub) ---
+
+            /**
+             * The main game loop.
+             * This function is called every frame and is the
+             * ultimate hub of interdependencies.
+             */
+            function animate() {
+                // 1. Get the loop request for the next frame
+                //    This is the first dependency.
+                requestAnimationFrame(animate);
+
+                // 2. Update camera controls (View dependency)
+                controls.update();
+                
+                // 3. Update physics (Model dependency)
+                const time = performance.now();
+                if (lastTime !== 0) {
+                    const dt = (time - lastTime) / 1000;
+                    // **DEPENDENCY:** Step the physics world forward
+                    world.step(fixedTimeStep, dt, 3); // (timestep, dt, maxSubSteps)
+                }
+                lastTime = time;
+
+                // 4. **THE CORE SYNCHRONIZATION DEPENDENCY**
+                //    Update all Views (Three.js) based on their
+                //    corresponding Models (Cannon-es).
+                for (const sphere of spheresAndConstraints) {
+                    // **DEPENDENCY:**
+                    // The View's position *is dependent on* the Model's position.
+                    sphere.mesh.position.copy(sphere.body.position);
+                    
+                    // **DEPENDENCY:**
+                    // The View's rotation *is dependent on* the Model's rotation.
+                    sphere.mesh.quaternion.copy(sphere.body.quaternion);
+                    
+                    // **DEPENDENCY:**
+                    // The "string" (Line) visual *is dependent on*
+                    // both the static anchor and the dynamic model.
+                    const positions = sphere.line.geometry.attributes.position;
+                    positions.setXYZ(0, sphere.anchorPos.x, sphere.anchorPos.y, sphere.anchorPos.z);
+                    positions.setXYZ(1, sphere.body.position.x, sphere.body.position.y, sphere.body.position.z);
+                    positions.needsUpdate = true;
+                }
+
+                // 5. Render the scene (View dependency)
+                //    The renderer is dependent on the scene and camera.
+                renderer.render(scene, camera);
+            }
+            
+            
+            // --- 5. INITIALIZATION & EVENT LISTENERS ---
+            
+            /**
+             * Main entry function to start the application.
+             */
+            function main() {
+                try {
+                    // **EXECUTION DEPENDENCY:**
+                    // 1. Must init View first.
+                    initThreeScene();
+                    // 2. Must init Model second.
+                    initPhysicsWorld();
+                    // 3. Must create objects third (depends on 1 & 2).
+                    createNewtonCradle();
+                    
+                    // 4. Set up event listeners (depends on 1 & 2).
+                    window.addEventListener('resize', onWindowResize, false);
+                    renderer.domElement.addEventListener('mousemove', onMouseMove, false);
+                    renderer.domElement.addEventListener('mousedown', onMouseDown, false);
+                    renderer.domElement.addEventListener('mouseup', onMouseUp, false);
+                    document.getElementById('reset-button').addEventListener('click', resetSimulation);
+
+                    // 5. Lift the first ball to start (depends on 3).
+                    liftFirstBall();
+                    
+                    // 6. Start the animation loop (depends on all above).
+                    loaderElement.style.display = 'none'; // Hide loader
+                    animate();
+                    
+                } catch (error) {
+                    console.error("Fatal error during initialization:", error);
+                    loaderElement.textContent = "Error initializing simulation.";
+                }
+            }
+
+            // --- RUN APPLICATION ---
+            main();
+
+        }; // End of window.onload
+        
+    </script>
+</body>
+</html>

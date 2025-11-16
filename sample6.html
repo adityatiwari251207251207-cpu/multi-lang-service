@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-900">
+<head>
+    <meta charset="UTF-g">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Operations Dashboard - SkyLink</title>
+    <!--
+      Airline Flight Operations Dashboard
+      
+      This is a single-file, complex web application simulating a real-time
+      operations dashboard for an airline. It includes:
+      1. HTML structure for the dashboard layout.
+      2. Tailwind CSS for all styling (loaded from CDN).
+      3. A large, interdependent JavaScript application that simulates:
+         - A data service for fetching/mocking backend data.
+         - Services for managing flights, crews, and aircraft.
+         - A UI service for rendering all data to the DOM.
+         - Complex SQL query strings (as constants) to demonstrate
+           database-level interdependence.
+           
+      Author: AI (Gemini)
+      Version: 1.0.0
+    -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the dashboard */
+        :root {
+            --color-on-time: #22c55e;
+            --color-delayed: #f59e0b;
+            --color-cancelled: #ef4444;
+            --color-en-route: #3b82f6;
+        }
+        
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; /* gray-800 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563; /* gray-600 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* gray-500 */
+        }
+        
+        /* Status indicator glow */
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse-base 2s infinite;
+        }
+        .status-dot.on-time {
+            background-color: var(--color-on-time);
+            box-shadow: 0 0 5px var(--color-on-time);
+        }
+        .status-dot.delayed {
+            background-color: var(--color-delayed);
+            box-shadow: 0 0 5px var(--color-delayed);
+        }
+        .status-dot.cancelled {
+            background-color: var(--color-cancelled);
+            box-shadow: 0 0 5px var(--color-cancelled);
+        }
+        .status-dot.en-route {
+            background-color: var(--color-en-route);
+            box-shadow: 0 0 5px var(--color-en-route);
+        }
+        
+        @keyframes pulse-base {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.6;
+            }
+        }
+        
+        /* Blinking alert */
+        .blink-warning {
+            animation: blink-anim 1.5s linear infinite;
+        }
+        @keyframes blink-anim {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body class="h-full text-gray-200 font-sans antialiased">
+    <div class="flex flex-col h-screen">
+        <!-- Header -->
+        <header class="bg-gray-800 border-b border-gray-700 shadow-lg z-10">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-white">SkyLink Operations Control</h1>
+                    <p class="text-sm text-blue-300">Hub: JFK - John F. Kennedy International</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-right">
+                        <div id="current-time" class="text-lg font-mono text-white">--:--:-- Z</div>
+                        <div id="current-date" class="text-sm text-gray-400">----------</div>
+                    </div>
+                    <div class="flex items-center space-x-2 p-2 bg-gray-700 rounded-lg">
+                        <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                        <span class="text-sm font-medium">All Systems Nominal</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex overflow-hidden">
+            
+            <!-- Left Panel: Flight List -->
+            <aside class="w-2/5 h-full flex flex-col bg-gray-800 border-r border-gray-700">
+                <!-- Filters -->
+                <div class="p-4 border-b border-gray-700">
+                    <h2 class="text-lg font-semibold text-white mb-3">Flight Watchlist (JFK)</h2>
+                    <div class="flex space-x-2">
+                        <input type="text" id="filter-flight-number" placeholder="Flight #" class="w-1/4 bg-gray-700 text-white border border-gray-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="filter-origin" placeholder="Origin" class="w-1/4 bg-gray-700 text-white border border-gray-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="filter-dest" placeholder="Dest" class="w-1/4 bg-gray-700 text-white border border-gray-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <select id="filter-status" class="w-1/4 bg-gray-700 text-white border border-gray-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="ALL">All Statuses</option>
+                            <option value="ON TIME">On Time</option>
+                            <option value="DELAYED">Delayed</option>
+                            <option value="CANCELLED">Cancelled</option>
+                            <option value="EN ROUTE">En Route</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Flight Table -->
+                <div class="flex-1 overflow-y-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="sticky top-0 bg-gray-700">
+                            <tr>
+                                <th class="p-3 font-semibold">Flight</th>
+                                <th class="p-3 font-semibold">Route</th>
+                                <th class="p-3 font-semibold">Time (Sch/Est)</th>
+                                <th class="p-3 font-semibold">Gate</th>
+                                <th class="p-3 font-semibold">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="flight-list-body" class="divide-y divide-gray-700">
+                            <!-- JS will populate this -->
+                            <tr>
+                                <td colspan="5" class="p-6 text-center text-gray-400">Loading flight data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Summary Bar -->
+                <div class="p-3 bg-gray-900 border-t border-gray-700 text-xs text-gray-400 flex justify-between">
+                    <div>Total Flights: <span id="summary-total" class="font-bold text-white">0</span></div>
+                    <div>On Time: <span id="summary-on-time" class="font-bold text-green-400">0</span></div>
+                    <div>Delayed: <span id="summary-delayed" class="font-bold text-yellow-400">0</span></div>
+                    <div>Cancelled: <span id="summary-cancelled" class="font-bold text-red-400">0</span></div>
+                </div>
+            </aside>
+
+            <!-- Right Panel: Details and Map -->
+            <section class="w-3/5 h-full flex flex-col">
+                <!-- Top-Right: Details Pane -->
+                <div class="h-3/5 bg-gray-900 p-4 flex flex-col overflow-y-auto">
+                    <h2 class="text-xl font-semibold text-white mb-4" id="details-title">Select a Flight</h2>
+                    
+                    <!-- Details Content (hidden by default) -->
+                    <div id="details-content" class="hidden flex-1">
+                        <!-- Flight Info -->
+                        <div class="grid grid-cols-3 gap-4 mb-4">
+                            <div class="bg-gray-800 p-3 rounded-lg">
+                                <div class="text-xs text-blue-300">Aircraft</div>
+                                <div id="details-aircraft" class="text-lg font-mono">--</div>
+                                <div id="details-aircraft-status" class="text-xs">--</div>
+                            </div>
+                            <div class="bg-gray-800 p-3 rounded-lg">
+                                <div class="text-xs text-blue-300">Passengers</div>
+                                <div id="details-pax" class="text-lg font-mono">-- / --</div>
+                                <div class="text-xs">Booked / Capacity</div>
+                            </div>
+                            <div class="bg-gray-800 p-3 rounded-lg">
+                                <div class="text-xs text-blue-300">Gate</div>
+                                <div id="details-gate" class="text-lg font-mono">--</div>
+                                <div id="details-terminal" class="text-xs">--</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Crew Info -->
+                        <div class="bg-gray-800 p-4 rounded-lg mb-4">
+                            <h3 class="text-md font-semibold mb-2">Assigned Crew (<span id="details-crew-id">--</span>)</h3>
+                            <div id="details-crew-list" class="grid grid-cols-3 gap-2 text-sm">
+                                <!-- JS will populate this -->
+                                <span class="text-gray-400">No crew information available.</span>
+                            </div>
+                            <div id="details-crew-warning" class="mt-2 text-yellow-400 text-sm font-medium hidden"></div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="bg-gray-800 p-4 rounded-lg">
+                            <h3 class="text-md font-semibold mb-3">Operational Actions</h3>
+                            <div class="flex flex-wrap gap-2">
+                                <div class="flex-1 flex space-x-2">
+                                    <input type="number" id="action-delay-mins" placeholder="Mins" class="w-20 bg-gray-700 text-white border border-gray-600 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <button id="action-delay-btn" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded-md text-sm">Delay Flight</button>
+                                </div>
+                                <div class="flex-1 flex space-x-2">
+                                    <input type="text" id="action-gate-change" placeholder="New Gate" class="w-24 bg-gray-700 text-white border border-gray-600 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <button id="action-gate-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-sm">Change Gate</button>
+                                </div>
+                                <button id="action-cancel-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-md text-sm">Cancel Flight</button>
+                                <button id="action-find-crew-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-md text-sm">Find Replacement Crew</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom-Right: Map & Alerts -->
+                <div class="h-2/5 border-t border-gray-700 flex">
+                    <!-- Map (Simulated) -->
+                    <div class="w-2/3 bg-gray-800 p-4">
+                        <h3 class="text-md font-semibold mb-2">Live Airspace (JFK Sector)</h3>
+                        <div class="w-full h-5/6 bg-gray-900 rounded-lg flex items-center justify-center border border-gray-700">
+                            <div class="text-gray-500 text-center">
+                                <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13v-6m0 6l5.447 2.724A1 1 0 0015.894 20.382V9.618a1 1 0 00-.553-.894L15 7m-6 0v6m6-6v6m0-6L21 5l-5.553-2.776A1 1 0 0015 3.118v0M9 7l6 3"></path></svg>
+                                <p class="mt-2">Live Map Display Offline</p>
+                                <p class="text-sm" id="map-flight-info">No flight selected</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Alerts -->
+                    <div class="w-1/3 border-l border-gray-700 bg-gray-900 flex flex-col">
+                        <h3 class="text-md font-semibold p-4 border-b border-gray-700">Operational Alerts</h3>
+                        <div id="alerts-list" class="flex-1 overflow-y-auto p-4 space-y-3">
+                            <div class="text-gray-500 text-sm">No alerts.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 
+    ========================================================================
+    === JAVASCRIPT APPLICATION START ===
+    ========================================================================
+    This is a single, monolithic JavaScript application module.
+    It contains multiple interdependent "services" to manage the dashboard.
+    - App: Main controller
+    - DataService: Simulates a backend, contains complex SQL strings.
+    - FlightManager: Manages flight data state.
+    - CrewManager: Manages crew data state.
+    - AircraftManager: Manages aircraft data state.
+    - UIManager: Manages all DOM rendering and events.
+    -->
+    <script type="module">
+        
+        /**
+         * ========================================
+         * === 1. DataService (Backend Simulator) ===
+         * ========================================
+         * Simulates a backend API and database.
+         * Contains complex, interdependent SQL query strings as requested.
+         */
+        const DataService = {
+            
+            // --- Simulated Database Tables (as JS arrays) ---
+            _db: {
+                aircraft: [
+                    { id: 1, tailNum: 'N101SK', model: 'A321', status: 'OPERATIONAL', location: 'JFK' },
+                    { id: 2, tailNum: 'N202SK', model: 'A321', status: 'OPERATIONAL', location: 'LAX' },
+                    { id: 3, tailNum: 'N303SK', model: 'B738', status: 'OPERATIONAL', location: 'JFK' },
+                    { id: 4, tailNum: 'N404SK', model: 'B738', status: 'MAINTENANCE', location: 'JFK' },
+                    { id: 5, tailNum: 'N505SK', model: 'A320', status: 'OPERATIONAL', location: 'MIA' },
+                ],
+                crews: [
+                    { id: 10, members: [101, 102, 103, 104], dutyStartTime: '2025-11-11T12:00:00Z', dutyEndTime: '2025-11-12T00:00:00Z', status: 'RESTING' },
+                    { id: 11, members: [105, 106, 107, 108], dutyStartTime: '2025-11-11T14:00:00Z', dutyEndTime: '2025-11-12T02:00:00Z', status: 'ACTIVE' },
+                    { id: 12, members: [109, 110, 111, 112], dutyStartTime: '2025-11-11T16:00:00Z', dutyEndTime: '2025-11-12T04:00:00Z', status: 'STANDBY' },
+                    { id: 13, members: [113, 114, 115, 116], dutyStartTime: '2025-11-11T18:00:00Z', dutyEndTime: '2025-11-12T06:00:00Z', status: 'STANDBY' },
+                ],
+                employees: [
+                    { id: 101, name: 'Cpt. Reynolds', position: 'Captain', certs: ['A321'] },
+                    { id: 102, name: 'F/O Frye', position: 'First Officer', certs: ['A321'] },
+                    { id: 103, name: 'FA Cobb', position: 'Flight Attendant', certs: [] },
+                    { id: 104, name: 'FA Tam', position: 'Flight Attendant', certs: [] },
+                    { id: 105, name: 'Cpt. Mal', position: 'Captain', certs: ['B738'] },
+                    { id: 106, name: 'F/O Zoe', position: 'First Officer', certs: ['B738'] },
+                    { id: 107, name: 'FA Wash', position: 'Flight Attendant', certs: [] },
+                    { id: 108, name: 'FA Kaylee', position: 'Flight Attendant', certs: [] },
+                    { id: 109, name: 'Cpt. Kirk', position: 'Captain', certs: ['A321', 'B738'] },
+                    { id: 110, name: 'F/O Spock', position: 'First Officer', certs: ['A321', 'B738'] },
+                    { id: 111, name: 'FA Uhura', position: 'Flight Attendant', certs: [] },
+                    { id: 112, name: 'FA Sulu', position: 'Flight Attendant', certs: [] },
+                    { id: 113, name: 'Cpt. Picard', position: 'Captain', certs: ['A320'] },
+                    { id: 114, name: 'F/O Riker', position: 'First Officer', certs: ['A320'] },
+                    { id: 115, name: 'FA Troi', position: 'Flight Attendant', certs: [] },
+                    { id: 116, name: 'FA Crusher', position: 'Flight Attendant', certs: [] },
+                ],
+                flights: [
+                    { id: 1, flightNum: 'SK100', origin: 'JFK', dest: 'LAX', schDep: '2025-11-11T17:00:00Z', estDep: '2025-11-11T17:00:00Z', schArr: '2025-11-11T20:00:00Z', estArr: '2025-11-11T20:00:00Z', status: 'ON TIME', gate: 'A10', terminal: 'T4', aircraftId: 1, crewId: 11, pax: 170, capacity: 180 },
+                    { id: 2, flightNum: 'SK101', origin: 'LAX', dest: 'JFK', schDep: '2025-11-11T18:00:00Z', estDep: '2025-11-11T18:00:00Z', schArr: '2025-11-11T21:00:00Z', estArr: '2025-11-11T21:00:00Z', status: 'EN ROUTE', gate: 'B22', terminal: 'T4', aircraftId: 2, crewId: 10, pax: 165, capacity: 180 },
+                    { id: 3, flightNum: 'SK200', origin: 'JFK', dest: 'MIA', schDep: '2025-11-11T17:30:00Z', estDep: '2025-11-11T17:30:00Z', schArr: '2025-11-11T20:30:00Z', estArr: '2025-11-11T20:30:00Z', status: 'ON TIME', gate: 'A12', terminal: 'T4', aircraftId: 3, crewId: 12, pax: 140, capacity: 150 },
+                    { id: 4, flightNum: 'SK201', origin: 'MIA', dest: 'JFK', schDep: '2025-11-11T17:00:00Z', estDep: '2025-11-11T17:00:00Z', schArr: '2025-11-11T20:00:00Z', estArr: '2025-11-11T20:00:00Z', status: 'EN ROUTE', gate: 'B24', terminal: 'T4', aircraftId: 5, crewId: 13, pax: 130, capacity: 140 },
+                    { id: 5, flightNum: 'SK300', origin: 'JFK', dest: 'SFO', schDep: '2025-11-11T18:15:00Z', estDep: '2025-11-11T18:15:00Z', schArr: '2025-11-11T21:45:00Z', estArr: '2025-11-11T21:45:00Z', status: 'ON TIME', gate: 'A14', terminal: 'T4', aircraftId: null, crewId: null, pax: 175, capacity: 180 },
+                ],
+            },
+
+            // --- Interdependent SQL Query Strings (as requested) ---
+            SQL: {
+                // A complex query to get all flight details for the main list.
+                // This query is highly interdependent, joining 5 tables.
+                GET_FLIGHT_LIST: `
+                    SELECT
+                        f.flight_id, f.flight_number, f.status,
+                        f.sch_departure_time, f.est_departure_time,
+                        f.sch_arrival_time, f.est_arrival_time,
+                        f.gate, f.terminal,
+                        o.airport_code AS origin_code, o.city AS origin_city,
+                        d.airport_code AS dest_code, d.city AS dest_city,
+                        a.tail_number, a.model AS aircraft_model,
+                        c.crew_id, c.status AS crew_status
+                    FROM flights f
+                    LEFT JOIN airports o ON f.origin_airport_id = o.airport_id
+                    LEFT JOIN airports d ON f.destination_airport_id = d.airport_id
+                    LEFT JOIN aircraft a ON f.assigned_aircraft_id = a.aircraft_id
+                    LEFT JOIN crews c ON f.assigned_crew_id = c.crew_id
+                    WHERE (f.origin_airport_id = ? OR f.destination_airport_id = ?)
+                      AND f.sch_departure_time BETWEEN ? AND ?
+                    ORDER BY f.sch_departure_time;
+                `,
+                
+                // A query to get full details for one flight.
+                // Also highly interdependent.
+                GET_FLIGHT_DETAILS: `
+                    SELECT
+                        f.*, -- all flight fields
+                        a.tail_number, a.model, a.status AS aircraft_status,
+                        r.route_name, r.avg_duration_mins,
+                        c.crew_id, c.duty_end_time,
+                        p.total_passengers, p.passenger_capacity
+                    FROM flights f
+                    LEFT JOIN aircraft a ON f.assigned_aircraft_id = a.aircraft_id
+                    LEFT JOIN routes r ON f.route_id = r.route_id
+                    LEFT JOIN crews c ON f.assigned_crew_id = c.crew_id
+                    LEFT JOIN passenger_manifests p ON f.flight_id = p.flight_id
+                    WHERE f.flight_id = ?;
+                `,
+
+                // An interdependent query to get all crew members for a specific crew ID.
+                GET_CREW_MEMBERS: `
+                    SELECT
+                        e.employee_id, e.full_name, e.position,
+                        e.home_base,
+                        certs.certification_code
+                    FROM employees e
+                    JOIN crew_assignments ca ON e.employee_id = ca.employee_id
+                    LEFT JOIN employee_certifications certs ON e.employee_id = certs.employee_id
+                    WHERE ca.crew_id = ?;
+                `,
+                
+                // A very complex interdependent query to find available replacement crews.
+                // It must find crews that are 'STANDBY', at the right location ('JFK'),
+                // and whose members are certified for the specific aircraft model.
+                FIND_REPLACEMENT_CREW: `
+                    SELECT
+                        c.crew_id,
+                        c.status,
+                        c.current_location,
+                        COUNT(e.employee_id) AS member_count
+                    FROM crews c
+                    -- Join to find crew members
+                    JOIN crew_assignments ca ON c.crew_id = ca.crew_id
+                    JOIN employees e ON ca.employee_id = e.employee_id
+                    -- Join to check certifications (interdependent)
+                    JOIN employee_certifications ec ON e.employee_id = ec.employee_id
+                    WHERE
+                        c.status = 'STANDBY'
+                        AND c.current_location = ? -- e.g., 'JFK'
+                        AND c.duty_end_time > ? -- Has enough duty time left
+                        AND ec.certification_code = ? -- e.g., 'A321'
+                    GROUP BY c.crew_id, c.status, c.current_location
+                    HAVING 
+                        -- Ensure crew has at least a Captain and F/O
+                        SUM(CASE WHEN e.position = 'Captain' THEN 1 ELSE 0 END) > 0
+                        AND SUM(CASE WHEN e.position = 'First Officer' THEN 1 ELSE 0 END) > 0;
+                `
+            },
+
+            // --- Simulated API Methods ---
+            
+            _simulateDelay: (ms) => new Promise(res => setTimeout(res, ms)),
+
+            // Simulates GET /api/flights?hub=JFK
+            getFlights: async (hub) => {
+                await DataService._simulateDelay(400);
+                console.log("DataService: Faking API call 'getFlights' using SQL:\n" + DataService.SQL.GET_FLIGHT_LIST);
+                // Simulate filtering by hub (JFK)
+                const flights = DataService._db.flights.filter(f => f.origin === hub || f.dest === hub);
+                return JSON.parse(JSON.stringify(flights)); // Deep copy
+            },
+
+            // Simulates GET /api/flights/{id}
+            getFlightDetails: async (flightId) => {
+                await DataService._simulateDelay(250);
+                console.log("DataService: Faking API call 'getFlightDetails' using SQL:\n" + DataService.SQL.GET_FLIGHT_DETAILS);
+                
+                const flight = DataService._db.flights.find(f => f.id === flightId);
+                if (!flight) return null;
+                
+                const aircraft = DataService._db.aircraft.find(a => a.id === flight.aircraftId);
+                const crew = DataService._db.crews.find(c => c.id === flight.crewId);
+                
+                let crewMembers = [];
+                if (crew) {
+                    console.log("DataService: Faking API call 'getCrewMembers' using SQL:\n" + DataService.SQL.GET_CREW_MEMBERS);
+                    crewMembers = crew.members.map(empId => {
+                        return DataService._db.employees.find(e => e.id === empId);
+                    });
+                }
+                
+                // Return a complex, joined object
+                return {
+                    ...JSON.parse(JSON.stringify(flight)),
+                    aircraft: JSON.parse(JSON.stringify(aircraft)),
+                    crew: {
+                        ...JSON.parse(JSON.stringify(crew)),
+                        members: JSON.parse(JSON.stringify(crewMembers))
+                    }
+                };
+            },
+            
+            // Simulates GET /api/aircraft?location=JFK
+            getAircraft: async (location) => {
+                await DataService._simulateDelay(300);
+                console.log("DataService: Faking API call 'getAircraft'");
+                return JSON.parse(JSON.stringify(
+                    DataService._db.aircraft.filter(a => a.location === location)
+                ));
+            },
+            
+            // Simulates GET /api/crews?location=JFK&status=STANDBY
+            findReplacementCrews: async (location, aircraftModel) => {
+                await DataService._simulateDelay(600);
+                console.log("DataService: Faking API call 'findReplacementCrews' using SQL:\n" + DataService.SQL.FIND_REPLACEMENT_CREW);
+                
+                const standbyCrews = DataService._db.crews.filter(c => c.status === 'STANDBY');
+                const qualifiedCrews = [];
+
+                for (const crew of standbyCrews) {
+                    // Check if at least one pilot is certified
+                    const pilots = crew.members
+                        .map(id => DataService._db.employees.find(e => e.id === id))
+                        .filter(e => e.position === 'Captain' || e.position === 'First Officer');
+                    
+                    const isCertified = pilots.some(p => p.certs.includes(aircraftModel));
+                    if (isCertified) {
+                        qualifiedCrews.push(JSON.parse(JSON.stringify(crew)));
+                    }
+                }
+                return qualifiedCrews;
+            },
+
+            // --- Simulated POST/PATCH Methods ---
+            
+            // Simulates PATCH /api/flights/{id}
+            updateFlight: async (flightId, updates) => {
+                await DataService._simulateDelay(350);
+                console.log(`DataService: Faking API call 'updateFlight' for ID ${flightId}`, updates);
+                const flight = DataService._db.flights.find(f => f.id === flightId);
+                if (flight) {
+                    Object.assign(flight, updates);
+                    return { success: true, data: JSON.parse(JSON.stringify(flight)) };
+                }
+                return { success: false, error: "Flight not found" };
+            },
+            
+            // Simulates PATCH /api/aircraft/{id}
+            updateAircraftStatus: async (aircraftId, newStatus, newLocation) => {
+                await DataService._simulateDelay(200);
+                console.log(`DataService: Faking API call 'updateAircraftStatus' for ID ${aircraftId}`);
+                const aircraft = DataService._db.aircraft.find(a => a.id === aircraftId);
+                if (aircraft) {
+                    aircraft.status = newStatus;
+                    aircraft.location = newLocation;
+                    return { success: true, data: JSON.parse(JSON.stringify(aircraft)) };
+                }
+                return { success: false, error: "Aircraft not found" };
+            },
+            
+            // Simulates PATCH /api/crews/{id}
+            updateCrewStatus: async (crewId, newStatus) => {
+                await DataService._simulateDelay(200);
+                console.log(`DataService: Faking API call 'updateCrewStatus' for ID ${crewId}`);
+                const crew = DataService._db.crews.find(c => c.id === crewId);
+                if (crew) {
+                    crew.status = newStatus;
+                    return { success: true, data: JSON.parse(JSON.stringify(crew)) };
+                }
+                return { success: false, error: "Crew not found" };
+            }
+        };
+
+        /**
+         * ========================================
+         * === 2. FlightManager (State) ===
+         * ========================================
+         * Manages the state of flights.
+         * Interdependent on DataService, CrewManager, AircraftManager, UIManager.
+         */
+        const FlightManager = {
+            _flights: new Map(), // Use a Map for efficient lookups
+            _selectedFlightId: null,
+
+            // Interdependent services
+            _crewManager: null,
+            _aircraftManager: null,
+            _uiManager: null,
+            _dataService: null,
+            
+            _alerts: [],
+
+            init(dependencies) {
+                this._crewManager = dependencies.crewManager;
+                this._aircraftManager = dependencies.aircraftManager;
+                this._uiManager = dependencies.uiManager;
+                this._dataService = dependencies.dataService;
+                console.log("FlightManager initialized.");
+            },
+            
+            getFlights() {
+                return Array.from(this._flights.values());
+            },
+            
+            getFlight(id) {
+                return this._flights.get(id);
+            },
+            
+            getSelectedFlight() {
+                return this.getFlight(this._selectedFlightId);
+            },
+            
+            getAlerts() {
+                return this._alerts;
+            },
+
+            async loadFlights(hub) {
+                const flightData = await this._dataService.getFlights(hub);
+                this._flights.clear();
+                this._alerts = [];
+                for (const flight of flightData) {
+                    // Check for issues on load
+                    this._validateFlight(flight);
+                    this._flights.set(flight.id, flight);
+                }
+                console.log(`FlightManager: Loaded ${this._flights.size} flights.`);
+                
+                // Interdependent call to UIManager
+                this._uiManager.renderFlightList();
+                this._uiManager.renderSummary();
+                this._uiManager.renderAlerts();
+            },
+            
+            _validateFlight(flight) {
+                if (flight.status === 'CANCELLED') return;
+                
+                // Check for unassigned resources
+                if (!flight.aircraftId) {
+                    this._addAlert(flight, 'Missing Aircraft', 'warning');
+                }
+                if (!flight.crewId) {
+                    this._addAlert(flight, 'Missing Crew', 'warning');
+                }
+                
+                // Check for maintenance issue (interdependent)
+                const aircraft = this._aircraftManager.getAircraft(flight.aircraftId);
+                if (aircraft && aircraft.status === 'MAINTENANCE') {
+                    this._addAlert(flight, `Aircraft ${aircraft.tailNum} is in maintenance`, 'error');
+                }
+            },
+
+            async selectFlight(id) {
+                if (this._selectedFlightId === id) return;
+                
+                this._selectedFlightId = id;
+                this._uiManager.renderFlightList(); // To show selection
+                
+                const flightDetails = await this._dataService.getFlightDetails(id);
+                if (flightDetails) {
+                    // Update local state with full details
+                    this._flights.set(id, flightDetails); 
+                    
+                    // Load details into other managers (interdependent)
+                    if (flightDetails.aircraft) {
+                        this._aircraftManager.addAircraft(flightDetails.aircraft);
+                    }
+                    if (flightDetails.crew) {
+                        this._crewManager.addCrew(flightDetails.crew);
+                    }
+                    
+                    // Check for issues with the detailed data
+                    this._checkCrewDutyTime(flightDetails);
+
+                    // Render the details pane (interdependent call)
+                    this._uiManager.renderDetailsPane(flightDetails);
+                } else {
+                    this._uiManager.clearDetailsPane();
+                }
+            },
+            
+            // --- Interdependent Actions ---
+            
+            async delayFlight(id, minutes) {
+                const flight = this.getFlight(id);
+                if (!flight || flight.status === 'CANCELLED' || flight.status === 'EN ROUTE') {
+                    return;
+                }
+                
+                console.log(`FlightManager: Delaying flight ${flight.flightNum} by ${minutes} mins.`);
+                
+                const newEstDep = new Date(new Date(flight.estDep).getTime() + minutes * 60000);
+                const newEstArr = new Date(new Date(flight.estArr).getTime() + minutes * 60000);
+                
+                const updates = {
+                    estDep: newEstDep.toISOString(),
+                    estArr: newEstArr.toISOString(),
+                    status: 'DELAYED'
+                };
+                
+                const { success, data } = await this._dataService.updateFlight(id, updates);
+                
+                if (success) {
+                    this._flights.set(id, data);
+                    this._addAlert(flight, `Delayed ${minutes} mins`, 'info');
+                    
+                    // --- Interdependent Checks ---
+                    // 1. Check impact on crew
+                    this._checkCrewDutyTime(data);
+                    
+                    // 2. Check impact on aircraft turnaround
+                    this._aircraftManager.checkAircraftTurnaround(data.aircraftId, data.estArr);
+                    
+                    // --- Interdependent UI Updates ---
+                    this._uiManager.renderFlightList();
+                    this._uiManager.renderSummary();
+                    this._uiManager.renderAlerts();
+                    if (this._selectedFlightId === id) {
+                        this._uiManager.renderDetailsPane(data);
+                    }
+                }
+            },
+            
+            async cancelFlight(id) {
+                const flight = this.getFlight(id);
+                if (!flight || flight.status === 'CANCELLED') return;
+                
+                console.log(`FlightManager: Cancelling flight ${flight.flightNum}.`);
+                
+                const { success, data } = await this._dataService.updateFlight(id, { status: 'CANCELLED' });
+                
+                if (success) {
+                    this._flights.set(id, data);
+                    this._addAlert(flight, 'Flight Cancelled', 'error');
+                    
+                    // --- Interdependent Resource Release ---
+                    // 1. Release Aircraft
+                    if (data.aircraftId) {
+                        this._aircraftManager.updateAircraftStatus(data.aircraftId, 'OPERATIONAL', flight.origin);
+                    }
+                    // 2. Release Crew
+                    if (data.crewId) {
+                        this._crewManager.updateCrewStatus(data.crewId, 'STANDBY');
+                    }
+                    
+                    // --- Interdependent UI Updates ---
+                    this._uiManager.renderFlightList();
+                    this._uiManager.renderSummary();
+                    this._uiManager.renderAlerts();
+                    if (this._selectedFlightId === id) {
+                        this._uiManager.renderDetailsPane(data);
+                    }
+                }
+            },
+            
+            async changeGate(id, newGate) {
+                const flight = this.getFlight(id);
+                if (!flight) return;
+                
+                const { success, data } = await this._dataService.updateFlight(id, { gate: newGate });
+                if (success) {
+                    this._flights.set(id, data);
+                    this._addAlert(flight, `Gate change -> ${newGate}`, 'info');
+                    
+                    this._uiManager.renderFlightList();
+                    this._uiManager.renderAlerts();
+                    if (this._selectedFlightId === id) {
+                        this._uiManager.renderDetailsPane(data);
+                    }
+                }
+            },
+            
+            // --- Interdependent Validation ---
+            
+            _checkCrewDutyTime(flight) {
+                if (!flight.crewId || !flight.estArr) return;
+                
+                // Interdependent call to CrewManager
+                const crew = this._crewManager.getCrew(flight.crewId);
+                if (crew) {
+                    const estArrival = new Date(flight.estArr);
+                    const dutyEnd = new Date(crew.dutyEndTime);
+                    
+                    if (estArrival > dutyEnd) {
+                        const overTime = Math.round((estArrival - dutyEnd) / 60000);
+                        this._addAlert(flight, `Crew ${crew.id} will exceed duty time by ${overTime} mins`, 'error');
+                        this._uiManager.renderAlerts();
+                        if (this._selectedFlightId === flight.id) {
+                            this._uiManager.showCrewWarning(`WARNING: Crew will exceed duty time by ${overTime} minutes!`);
+                        }
+                    }
+                }
+            },
+            
+            _addAlert(flight, message, level) {
+                // Avoid duplicate alerts
+                const existing = this._alerts.find(a => a.flightId === flight.id && a.message === message);
+                if (existing) return;
+                
+                this._alerts.unshift({
+                    id: Date.now(),
+                    flightId: flight.id,
+                    flightNum: flight.flightNum,
+                    message: message,
+                    level: level, // 'info', 'warning', 'error'
+                    time: App.getCurrentTime().time
+                });
+                
+                // Max 100 alerts
+                if (this._alerts.length > 100) {
+                    this._alerts.pop();
+                }
+            }
+        };
+
+        /**
+         * ========================================
+         * === 3. CrewManager (State) ===
+         * ========================================
+         * Manages state of crews.
+         * Interdependent on DataService, UIManager, FlightManager.
+         */
+        const CrewManager = {
+            _crews: new Map(),
+            _dataService: null,
+            _uiManager: null,
+
+            init(dependencies) {
+                this._dataService = dependencies.dataService;
+                this._uiManager = dependencies.uiManager;
+                console.log("CrewManager initialized.");
+            },
+            
+            addCrew(crew) {
+                if (crew) {
+                    this._crews.set(crew.id, crew);
+                }
+            },
+            
+            getCrew(id) {
+                return this._crews.get(id);
+            },
+            
+            async findReplacement(flight) {
+                const flightAircraft = flight.aircraft;
+                if (!flightAircraft) {
+                    this._uiManager.showAlert("Cannot find crew: Flight has no aircraft assigned.", 'error');
+                    return;
+                }
+                
+                const model = flightAircraft.model;
+                console.log(`CrewManager: Finding replacement crew for ${model} at ${flight.origin}`);
+                
+                // Interdependent call to DataService
+                const crews = await this._dataService.findReplacementCrews(flight.origin, model);
+                
+                if (crews.length > 0) {
+                    this._uiManager.showAlert(`Found ${crews.length} qualified standby crews. Assigning ${crews[0].id}...`, 'success');
+                    // Simulate assignment
+                    // ...
+                } else {
+                    this._uiManager.showAlert(`No qualified standby crews found for ${model} at ${flight.origin}.`, 'error');
+                }
+            },
+            
+            async updateCrewStatus(id, newStatus) {
+                const { success, data } = await this._dataService.updateCrewStatus(id, newStatus);
+                if (success) {
+                    this.addCrew(data);
+                    console.log(`CrewManager: Crew ${id} status updated to ${newStatus}`);
+                }
+            }
+        };
+
+        /**
+         * ========================================
+         * === 4. AircraftManager (State) ===
+         * ========================================
+         * Manages state of aircraft.
+         * Interdependent on DataService, UIManager, FlightManager.
+         */
+        const AircraftManager = {
+            _aircraft: new Map(),
+            _dataService: null,
+            _uiManager: null,
+            _flightManager: null, // For interdependent checks
+
+            init(dependencies) {
+                this._dataService = dependencies.dataService;
+                this._uiManager = dependencies.uiManager;
+                this._flightManager = dependencies.flightManager;
+                console.log("AircraftManager initialized.");
+            },
+            
+            addAircraft(aircraft) {
+                if (aircraft) {
+                    this._aircraft.set(aircraft.id, aircraft);
+                }
+            },
+            
+            getAircraft(id) {
+                return this._aircraft.get(id);
+            },
+            
+            async loadAircraft(location) {
+                const data = await this._dataService.getAircraft(location);
+                for (const ac of data) {
+                    this.addAircraft(ac);
+                }
+                console.log(`AircraftManager: Loaded ${data.length} aircraft at ${location}.`);
+            },
+            
+            async updateAircraftStatus(id, newStatus, newLocation) {
+                const { success, data } = await this._dataService.updateAircraftStatus(id, newStatus, newLocation);
+                if (success) {
+                    this.addAircraft(data);
+                    console.log(`AircraftManager: Aircraft ${id} status updated to ${newStatus} at ${newLocation}`);
+                }
+            },
+            
+            checkAircraftTurnaround(aircraftId, arrivalTime) {
+                if (!aircraftId) return;
+                
+                console.log(`AircraftManager: Checking turnaround for aircraft ${aircraftId} arriving at ${arrivalTime}`);
+                
+                // Interdependent call: Find the *next* flight for this aircraft
+                const nextFlight = this._flightManager.getFlights().find(f => 
+                    f.aircraftId === aircraftId && 
+                    new Date(f.schDep) > new Date(arrivalTime)
+                );
+                
+                if (nextFlight) {
+                    const minTurnaroundTime = 60 * 60000; // 60 mins
+                    const availableTime = new Date(nextFlight.schDep) - new Date(arrivalTime);
+                    
+                    if (availableTime < minTurnaroundTime) {
+                        const delayNeeded = Math.round((minTurnaroundTime - availableTime) / 60000);
+                        console.error(`Aircraft ${aircraftId} has insufficient turnaround time for ${nextFlight.flightNum}.`);
+                        
+                        // Interdependent call: Add alert for the *next* flight
+                        this._flightManager._addAlert(nextFlight, `Insufficient turnaround. Requires ${delayNeeded} min delay.`, 'error');
+                        this._uiManager.renderAlerts();
+                    }
+                }
+            }
+        };
+
+        /**
+         * ========================================
+         * === 5. UIManager (Rendering & Events) ===
+         * ========================================
+         * Manages all DOM manipulation.
+         * Interdependent on all other services for data and actions.
+         */
+        const UIManager = {
+            // --- DOM Element Cache ---
+            elements: {
+                time: document.getElementById('current-time'),
+                date: document.getElementById('current-date'),
+                flightListBody: document.getElementById('flight-list-body'),
+                filterFlightNum: document.getElementById('filter-flight-number'),
+                filterOrigin: document.getElementById('filter-origin'),
+                filterDest: document.getElementById('filter-dest'),
+                filterStatus: document.getElementById('filter-status'),
+                summary: {
+                    total: document.getElementById('summary-total'),
+                    onTime: document.getElementById('summary-on-time'),
+                    delayed: document.getElementById('summary-delayed'),
+                    cancelled: document.getElementById('summary-cancelled'),
+                },
+                details: {
+                    title: document.getElementById('details-title'),
+                    content: document.getElementById('details-content'),
+                    aircraft: document.getElementById('details-aircraft'),
+                    aircraftStatus: document.getElementById('details-aircraft-status'),
+                    pax: document.getElementById('details-pax'),
+                    gate: document.getElementById('details-gate'),
+                    terminal: document.getElementById('details-terminal'),
+                    crewId: document.getElementById('details-crew-id'),
+                    crewList: document.getElementById('details-crew-list'),
+                    crewWarning: document.getElementById('details-crew-warning'),
+                },
+                actions: {
+                    delayMins: document.getElementById('action-delay-mins'),
+                    delayBtn: document.getElementById('action-delay-btn'),
+                    gateChange: document.getElementById('action-gate-change'),
+                    gateBtn: document.getElementById('action-gate-btn'),
+                    cancelBtn: document.getElementById('action-cancel-btn'),
+                    findCrewBtn: document.getElementById('action-find-crew-btn'),
+                },
+                alerts: document.getElementById('alerts-list'),
+                mapFlightInfo: document.getElementById('map-flight-info'),
+            },
+
+            // --- Interdependent Services ---
+            _flightManager: null,
+            _crewManager: null,
+
+            init(dependencies) {
+                this._flightManager = dependencies.flightManager;
+                this._crewManager = dependencies.crewManager;
+                this._registerEventListeners();
+                console.log("UIManager initialized.");
+            },
+            
+            _registerEventListeners() {
+                const els = this.elements;
+                
+                // Flight list click (event delegation)
+                els.flightListBody.addEventListener('click', (e) => {
+                    const row = e.target.closest('tr');
+                    if (row && row.dataset.flightId) {
+                        const id = parseInt(row.dataset.flightId, 10);
+                        // Interdependent call to FlightManager
+                        this._flightManager.selectFlight(id);
+                    }
+                });
+                
+                // Filters
+                [els.filterFlightNum, els.filterOrigin, els.filterDest].forEach(el => {
+                    el.addEventListener('input', () => this.renderFlightList());
+                });
+                els.filterStatus.addEventListener('change', () => this.renderFlightList());
+
+                // Action Buttons (interdependent calls)
+                els.actions.delayBtn.addEventListener('click', () => {
+                    const id = this._flightManager.getSelectedFlight()?.id;
+                    const mins = parseInt(els.actions.delayMins.value, 10);
+                    if (id && mins > 0) {
+                        this._flightManager.delayFlight(id, mins);
+                        els.actions.delayMins.value = '';
+                    }
+                });
+                
+                els.actions.cancelBtn.addEventListener('click', () => {
+                    const flight = this._flightManager.getSelectedFlight();
+                    if (flight) {
+                        this._flightManager.cancelFlight(flight.id);
+                    }
+                });
+                
+                els.actions.gateBtn.addEventListener('click', () => {
+                    const id = this._flightManager.getSelectedFlight()?.id;
+                    const gate = els.actions.gateChange.value.trim().toUpperCase();
+                    if (id && gate) {
+                        this._flightManager.changeGate(id, gate);
+                        els.actions.gateChange.value = '';
+                    }
+                });
+                
+                els.actions.findCrewBtn.addEventListener('click', () => {
+                    const flight = this._flightManager.getSelectedFlight();
+                    if (flight) {
+                        this._crewManager.findReplacement(flight);
+                    }
+                });
+            },
+            
+            // --- Clock ---
+            updateTime(time, date) {
+                this.elements.time.textContent = time;
+                this.elements.date.textContent = date;
+            },
+            
+            // --- Flight List Rendering ---
+            renderFlightList() {
+                const flights = this._flightManager.getFlights();
+                const filteredFlights = this._filterFlights(flights);
+                const body = this.elements.flightListBody;
+                
+                if (filteredFlights.length === 0) {
+                    body.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">No flights match criteria.</td></tr>`;
+                    return;
+                }
+                
+                const selectedId = this._flightManager._selectedFlightId;
+                const html = filteredFlights.map(flight => {
+                    const { statusClass, statusText } = this._getStatusInfo(flight);
+                    
+                    const isSelected = flight.id === selectedId;
+                    const selectionClass = isSelected ? 'bg-blue-900' : 'hover:bg-gray-700';
+                    
+                    const schDep = this._formatTime(flight.schDep);
+                    const estDep = this._formatTime(flight.estDep);
+                    const depTimeClass = (flight.estDep !== flight.schDep) ? 'text-yellow-400' : '';
+                    
+                    return `
+                        <tr data-flight-id="${flight.id}" class="${selectionClass} cursor-pointer">
+                            <td class="p-3">
+                                <div class="font-bold text-white">${flight.flightNum}</div>
+                                <div class="text-xs text-gray-400">${flight.aircraftId ? this._flightManager._aircraftManager.getAircraft(flight.aircraftId)?.tailNum : 'N/A'}</div>
+                            </td>
+                            <td class="p-3">
+                                <div class="font-medium text-white">${flight.origin} &rarr; ${flight.dest}</div>
+                            </td>
+                            <td class="p-3 ${depTimeClass}">
+                                <div class="font-mono">${schDep}</div>
+                                <div class="font-mono font-bold">${estDep}</div>
+                            </td>
+                            <td class="p-3 font-mono text-white">${flight.gate || '--'}</td>
+                            <td class="p-3">
+                                <span class="flex items-center">
+                                    <span class="status-dot ${statusClass} mr-2"></span>
+                                    <span class="font-semibold ${statusClass}">${statusText}</span>
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                
+                body.innerHTML = html;
+            },
+            
+            _filterFlights(flights) {
+                const num = this.elements.filterFlightNum.value.toLowerCase();
+                const origin = this.elements.filterOrigin.value.toLowerCase();
+                const dest = this.elements.filterDest.value.toLowerCase();
+                const status = this.elements.filterStatus.value;
+                
+                return flights.filter(f => {
+                    if (num && !f.flightNum.toLowerCase().includes(num)) return false;
+                    if (origin && !f.origin.toLowerCase().includes(origin)) return false;
+                    if (dest && !f.dest.toLowerCase().includes(dest)) return false;
+                    if (status !== 'ALL' && f.status !== status) return false;
+                    return true;
+                });
+            },
+            
+            renderSummary() {
+                const flights = this._flightManager.getFlights();
+                const summary = {
+                    total: flights.length,
+                    onTime: flights.filter(f => f.status === 'ON TIME').length,
+                    delayed: flights.filter(f => f.status === 'DELAYED').length,
+                    cancelled: flights.filter(f => f.status === 'CANCELLED').length,
+                };
+                
+                this.elements.summary.total.textContent = summary.total;
+                this.elements.summary.onTime.textContent = summary.onTime;
+                this.elements.summary.delayed.textContent = summary.delayed;
+                this.elements.summary.cancelled.textContent = summary.cancelled;
+            },
+            
+            // --- Details Pane Rendering (Highly Interdependent) ---
+            renderDetailsPane(flight) {
+                const els = this.elements.details;
+                
+                els.title.textContent = `Details for ${flight.flightNum} (${flight.origin} to ${flight.dest})`;
+                
+                // Aircraft Info
+                if (flight.aircraft) {
+                    els.aircraft.textContent = `${flight.aircraft.tailNum} (${flight.aircraft.model})`;
+                    els.aircraftStatus.textContent = flight.aircraft.status;
+                    els.aircraftStatus.className = flight.aircraft.status === 'OPERATIONAL' ? 'text-xs text-green-400' : 'text-xs text-yellow-400';
+                } else {
+                    els.aircraft.textContent = 'N/A';
+                    els.aircraftStatus.textContent = 'No Aircraft Assigned';
+                    els.aircraftStatus.className = 'text-xs text-red-400';
+                }
+                
+                // Pax
+                els.pax.textContent = `${flight.pax} / ${flight.capacity}`;
+                
+                // Gate
+                els.gate.textContent = flight.gate || '--';
+                els.terminal.textContent = flight.terminal || '--';
+                
+                // Crew
+                if (flight.crew && flight.crew.members.length > 0) {
+                    els.crewId.textContent = `ID ${flight.crew.id}`;
+                    els.crewList.innerHTML = flight.crew.members.map(emp => {
+                        if (emp) {
+                            return `<div><span class="font-semibold">${emp.position}:</span> ${emp.name}</div>`;
+                        }
+                        return '<div>Loading...</div>';
+                    }).join('');
+                } else {
+                    els.crewId.textContent = 'N/A';
+                    els.crewList.innerHTML = `<span class="text-gray-400">No crew assigned.</span>`;
+                }
+                
+                // Reset warnings
+                this.showCrewWarning(null);
+                
+                // Map
+                this.elements.mapFlightInfo.textContent = `Tracking ${flight.flightNum} (${flight.status})`;
+                
+                els.content.classList.remove('hidden');
+            },
+            
+            clearDetailsPane() {
+                this.elements.details.title.textContent = 'Select a Flight';
+                this.elements.details.content.classList.add('hidden');
+                this.elements.mapFlightInfo.textContent = 'No flight selected';
+            },
+            
+            showCrewWarning(message) {
+                const el = this.elements.details.crewWarning;
+                if (message) {
+                    el.textContent = message;
+                    el.classList.remove('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
+            },
+            
+            // --- Alerts ---
+            renderAlerts() {
+                const alerts = this._flightManager.getAlerts();
+                const el = this.elements.alerts;
+                
+                if (alerts.length === 0) {
+                    el.innerHTML = '<div class="text-gray-500 text-sm">No alerts.</div>';
+                    return;
+                }
+                
+                el.innerHTML = alerts.map(alert => {
+                    let colorClass, icon;
+                    if (alert.level === 'error') {
+                        colorClass = 'border-red-500 text-red-300';
+                        icon = '&#9888;'; // Warning sign
+                    } else if (alert.level === 'warning') {
+                        colorClass = 'border-yellow-500 text-yellow-300';
+                        icon = '&#9888;';
+                    } else {
+                        colorClass = 'border-blue-500 text-blue-300';
+                        icon = '&#8505;'; // Info
+                    }
+                    
+                    const isBlinking = (alert.level === 'error');
+                    
+                    return `
+                        <div class="text-xs p-2 rounded-md bg-gray-800 border-l-4 ${colorClass}">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold ${isBlinking ? 'blink-warning' : ''}">${icon} ${alert.flightNum}</span>
+                                <span class="text-gray-400">${alert.time}</span>
+                            </div>
+                            <p class="text-gray-200">${alert.message}</p>
+                        </div>
+                    `;
+                }).join('');
+            },
+            
+            showAlert(message, level) {
+                // A simple global alert
+                // In a real app, this would be a proper toast/modal
+                console.log(`ALERT [${level}]: ${message}`);
+            },
+            
+            // --- Utility Helpers ---
+            _formatTime(isoString) {
+                if (!isoString) return '--:--';
+                const date = new Date(isoString);
+                return date.toLocaleTimeString('en-US', { 
+                    timeZone: 'UTC', 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: false
+                }) + 'Z';
+            },
+            
+            _getStatusInfo(flight) {
+                switch (flight.status) {
+                    case 'ON TIME': return { statusClass: 'text-green-400 on-time', statusText: 'On Time' };
+                    case 'DELAYED': return { statusClass: 'text-yellow-400 delayed', statusText: 'Delayed' };
+                    case 'CANCELLED': return { statusClass: 'text-red-400 cancelled', statusText: 'Cancelled' };
+                    case 'EN ROUTE': return { statusClass: 'text-blue-400 en-route', statusText: 'En Route' };
+                    default: return { statusClass: 'text-gray-400', statusText: flight.status };
+                }
+            }
+        };
+        
+        /**
+         * ========================================
+         * === 6. App (Main Controller) ===
+         * ========================================
+         * Initializes and coordinates all services.
+         */
+        const App = {
+            _services: {},
+            
+            init() {
+                console.log("Initializing SkyLink Operations Dashboard...");
+                
+                // --- Service Initialization (with Interdependence) ---
+                // Create instances
+                const dataService = DataService;
+                const crewManager = Object.create(CrewManager);
+                const aircraftManager = Object.create(AircraftManager);
+                const flightManager = Object.create(FlightManager);
+                const uiManager = Object.create(UIManager);
+                
+                this._services = { dataService, crewManager, aircraftManager, flightManager, uiManager };
+
+                // Inject dependencies
+                crewManager.init({ dataService, uiManager });
+                aircraftManager.init({ dataService, uiManager, flightManager });
+                flightManager.init({ dataService, crewManager, aircraftManager, uiManager });
+                uiManager.init({ flightManager, crewManager });
+                
+                // --- Start Application ---
+                this._startClock();
+                this._loadInitialData();
+                this._startAutoRefresh();
+                
+                console.log("Application started. All services are interdependent and running.");
+            },
+            
+            _startClock() {
+                const update = () => {
+                    const now = new Date();
+                    const { time, date } = this.getCurrentTime(now);
+                    this._services.uiManager.updateTime(time, date);
+                };
+                update();
+                setInterval(update, 1000);
+            },
+            
+            getCurrentTime(date = null) {
+                const now = date || new Date();
+                return {
+                    time: now.toLocaleTimeString('en-US', { 
+                        timeZone: 'UTC', 
+                        hour: '2-digit', 
+                        minute: '2-digit', 
+                        second: '2-digit', 
+                        hour12: false 
+                    }) + 'Z',
+                    date: now.toLocaleDateString('en-US', { 
+                        timeZone: 'UTC', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    }) + ' (UTC)'
+                };
+            },
+            
+            async _loadInitialData() {
+                try {
+                    // These can run in parallel
+                    await Promise.all([
+                        this._services.aircraftManager.loadAircraft('JFK'),
+                        this._services.flightManager.loadFlights('JFK')
+                    ]);
+                    console.log("Initial data load complete.");
+                } catch (err) {
+                    console.error("Failed to load initial data:", err);
+                    this._services.uiManager.showAlert("Failed to load initial data. Check console.", 'error');
+                }
+            },
+            
+            _startAutoRefresh() {
+                // Simulate real-time updates by reloading data
+                setInterval(() => {
+                    console.log("Auto-refreshing flight data...");
+                    this._services.flightManager.loadFlights('JFK');
+                }, 30000); // Refresh every 30 seconds
+            }
+        };
+
+        // --- GO! ---
+        document.addEventListener('DOMContentLoaded', () => {
+            App.init();
+        });
+
+    </script>
+</body>
+</html>
+<!-- End of file. Approx 1150 lines. -->

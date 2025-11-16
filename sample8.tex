@@ -1,0 +1,491 @@
+% =========================================================================
+% Complex Academic Journal Article
+%
+% This is a single, self-contained, runnable LaTeX file.
+% It demonstrates multiple interdependencies:
+% 1. Preamble packages (amsmath, booktabs, hyperref, babel)
+% 2. \label{} and \ref{} for sections, equations, tables, figures.
+% 3. \cite{} and \bibitem{} for a full bibliography.
+% 4. Embedded (fictional) SQL queries within an algorithm description.
+%
+% Topic: Fictional paper on quantum-resistant cryptography.
+% Author: AI (Gemini)
+%
+% --- FIX V2 ---
+% - Added \usepackage{amssymb} and \usepackage{amsfonts} to define \mathbb.
+% - Removed backticks (`) from algorithm and itemize blocks.
+% - Escaped all underscores (_) as \_ in SQL code.
+% =========================================================================
+
+\documentclass[11pt, a4paper]{article}
+
+% --- UNIVERSAL PREAMBLE BLOCK ---
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{fontspec}
+
+% Use English as the main language
+\usepackage[english, bidi=basic, provide=*]{babel}
+\babelprovide[import, onchar=ids fonts]{english}
+
+% Set default/Latin font to Noto Sans
+% Using a Serif font for a more traditional academic look
+\babelfont{rm}{Noto Serif}
+\babelfont{sf}{Noto Sans} % Sans-serif for specific uses
+
+% --- REQUIRED PACKAGES FOR THIS DOCUMENT ---
+
+% For advanced math environments (align, pmatrix, etc.)
+\usepackage{amsmath}
+% For \mathbb
+\usepackage{amssymb}
+\usepackage{amsfonts}
+
+% For professional tables
+\usepackage{booktabs}
+
+% For placeholder figures
+\usepackage{graphicx}
+
+% For captions
+\usepackage{caption}
+
+% For algorithms (with SQL)
+\usepackage[ruled,vlined]{algorithm2e}
+\SetAlFnt{\small\ttfamily} % Set algorithm font to small tt
+\SetKwInput{KwInput}{Input}
+\SetKwInput{KwOutput}{Output}
+\SetKwComment{tcp}{// }{}
+
+% For hyperlinking \ref and \cite
+% This MUST be loaded late
+\usepackage[colorlinks=true, linkcolor=blue, citecolor=green, urlcolor=blue]{hyperref}
+
+% --- TITLE AND AUTHOR INFORMATION ---
+\title{
+    A Novel Quantum-Resistant Hash Function via Supersingular Isogeny Group Actions on \texorpdfstring{$\mathbb{F}_{p^2}$}{F\_p\^2}
+    \thanks{This research was supported by the Fictional Institute for Advanced Computation (FIAC), Grant No. 2025-AX101.}
+}
+
+\author{
+    Alexei V. Volkov$^{1,2}$ \and
+    Dr. Evelyn Reed$^1$ \and
+    Kenji Tanaka$^2$ \and
+    Prof. Samuel B. Olaru$^1$
+}
+
+\date{
+    $^1$Institute for Cryptographic Resilience, Zurich, Switzerland \\
+    $^2$Quantum Computing Research Division, Fictional University, Tokyo, Japan \\
+    \vspace{1em}
+    (Dated: November 11, 2025)
+}
+
+% =========================================================================
+% --- DOCUMENT BODY START ---
+% =========================================================================
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+% --- ABSTRACT ---
+\begin{abstract}
+\noindent
+The advent of practical quantum computing threatens the foundations of modern public-key cryptography, primarily RSA and Elliptic Curve Cryptography (ECC). In this paper, we propose a novel cryptographic hash function, "IsogenyHash", built upon the conjectured hardness of finding isogenies between supersingular elliptic curves. Our construction leverages a non-interactive, multi-step graph traversal on a graph of supersingular curves, where each step is determined by a pseudo-random mapping derived from the input message. We define the hash function as the $j$-invariant of the terminal curve in this "isogeny walk". This approach provides a one-way, collision-resistant function with a security reduction to the Supersingular Isogeny Diffie-Hellman (SIDH) problem, which is believed to be quantum-resistant. We provide a formal specification of the algorithm, a detailed security analysis against both classical and quantum attacks (including Shor's algorithm and Grover's search), and a performance benchmark against existing hash functions like SHA-3 and Blake2. Our reference implementation achieves a throughput of 24 cycles/byte on an Intel Skylake processor, demonstrating practical viability. We also discuss an interdependent database protocol for ledger-based verification of these hashes, presenting a novel SQL-based verification algorithm.
+\end{abstract}
+
+\clearpage
+\tableofcontents
+\clearpage
+
+% =========================================================================
+% --- SECTION 1: INTRODUCTION ---
+% =========================================================================
+\section{Introduction}
+\label{sec:intro}
+
+The cryptographic landscape is on the verge of a paradigm shift. Shor's algorithm \cite{shor1994algorithms}, when executed on a sufficiently powerful fault-tolerant quantum computer, will be capable of breaking the integer factorization and discrete logarithm problems in polynomial time. This capability renders most of our current public-key infrastructure, including RSA \cite{rivest1978method}, Diffie-Hellman \cite{diffie1976new}, and Elliptic Curve Cryptography (ECC) \cite{koblitz1987elliptic, miller1985use}, completely insecure.
+
+The global academic and industrial response has been the development of Post-Quantum Cryptography (PQC), which seeks new mathematical problems that remain hard even for quantum computers. The NIST PQC standardization process \cite{nist2019pqc} has identified several promising families of quantum-resistant algorithms, including:
+\begin{itemize}
+    \item Lattice-based cryptography (e.g., Kyber, Dilithium) \cite{lyubashevsky2011lattice}
+    \item Code-based cryptography (e.g., Classic McEliece) \cite{mceliece1978public}
+    \item Multivariate cryptography
+    \item Hash-based signatures (e.g., SPHINCS+) \cite{bernstein2015sphincs}
+    \item Isogeny-based cryptography
+\end{itemize}
+
+While much focus has been on key encapsulation mechanisms (KEMs) and digital signatures, the development of quantum-resistant hash functions has been less prominent, as standard functions like SHA-2 and SHA-3 are only partially threatened by Grover's algorithm \cite{grover1996fast}. Grover's search can theoretically reduce the security of an $n$-bit hash function from $O(2^n)$ to $O(2^{n/2})$, but this can be mitigated by simply doubling the output size (e.g., using SHA-3-512).
+
+However, we argue that this view is insufficient. A hash function whose security is tied to a *different* quantum-resistant problem provides valuable diversity in our cryptographic toolkit. Should a novel quantum attack (or a classical cryptanalytic breakthrough) emerge against SHA-3, a function based on different principles would be invaluable.
+
+Isogeny-based cryptography, first proposed by Couveignes \cite{couveignes1997hard}, is a particularly compelling candidate. Its security relies on the hardness of finding a path (an isogeny) between two supersingular elliptic curves. This problem is not known to be susceptible to Shor's algorithm. While the SIDH \cite{jao2011towards} and CSIDH \cite{castryck2018csidh} key exchange protocols have demonstrated the potential of isogenies, they have also faced significant cryptanalytic attacks \cite{castryck2022attack}.
+
+In this paper, we harness the fundamental properties of isogeny graphs to construct a one-way hash function, "IsogenyHash". Our approach is distinct from key exchange protocols and is designed to resist the "helper-point" attacks that have plagued SIDH. We leverage the "random-walk" approach first explored in \cite{charles2009cryptographic} for hash functions.
+
+Our contributions are as follows:
+\begin{enumerate}
+    \item We present a formal construction for IsogenyHash, a hash function based on deterministic pseudo-random walks on a supersingular isogeny graph.
+    \item We provide a security proof reducing collision resistance to the difficulty of solving the "Supersingular Isogeny Path-Finding" (SIPF) problem, which we show to be at least as hard as the computational SIDH problem.
+    \item We detail a novel verification protocol for ledger-based systems that uses interdependent SQL queries to verify hash provenance against a trusted curve database (see Section \ref{sec:sql_verification}).
+    \item We provide an open-source reference implementation and performance benchmarks (see Section \ref{sec:performance}) that demonstrate its practical feasibility.
+\end{enumerate}
+
+This paper is structured as follows. In Section \ref{sec:preliminaries}, we review the necessary mathematical background on elliptic curves and isogenies. In Section \ref{sec:methods}, we detail the full construction of IsogenyHash. Section \ref{sec:security} provides a rigorous security analysis. Section \ref{sec:performance} discusses our implementation and performance results. Finally, Section \ref{sec:conclusion} concludes the paper.
+
+% =========================================================================
+% --- SECTION 2: MATHEMATICAL PRELIMINARIES ---
+% =========================================================================
+\section{Mathematical Preliminaries}
+\label{sec:preliminaries}
+
+Our construction relies on the theory of elliptic curves over finite fields. We provide a brief overview; for a comprehensive treatment, we refer the reader to \cite{silverman2009arithmetic}.
+
+\subsection{Elliptic Curves}
+An elliptic curve $E$ over a finite field $K$ (where $\text{char}(K) > 3$) can be defined by a short Weierstrass equation:
+\begin{equation}
+E: y^2 = x^3 + Ax + B
+\label{eq:weierstrass}
+\end{equation}
+where $A, B \in K$ and the discriminant $\Delta = -16(4A^3 + 27B^2)$ is non-zero. The set of $K$-rational points $E(K)$ on the curve, together with a point at infinity $\mathcal{O}$, forms an abelian group under a well-defined "point addition" law.
+
+\subsection{Isogenies}
+An isogeny $\phi: E_1 \to E_2$ between two elliptic curves $E_1$ and $E_2$ is a non-constant morphism that is also a group homomorphism. It is defined by rational maps. The \emph{degree} of an isogeny, $\deg(\phi)$, is its degree as a map of algebraic curves. For our purposes, we are interested in isogenies of prime degree $\ell$, which have a cyclic kernel of order $\ell$.
+
+For any cyclic subgroup $G \subset E_1$ of order $\ell$, there exists a unique (up to isomorphism) curve $E_2$ and an $\ell$-isogeny $\phi: E_1 \to E_2$ such that $\ker(\phi) = G$. This $E_2$ is denoted as $E_1 / G$.
+
+\subsection{Supersingular Curves}
+\label{ssec:supersingular}
+We work over a prime field $\mathbb{F}_p$ where $p$ is a large prime of the form $p = \ell_A^{e_A} \ell_B^{e_B} f \pm 1$. An elliptic curve $E/\mathbb{F}_{p^2}$ is \emph{supersingular} if its endomorphism ring $\text{End}(E)$ is an order in a quaternion algebra. The $j$-invariant of a supersingular curve $E$ is an element of $\mathbb{F}_{p^2}$. There are approximately $p/12$ isomorphism classes of supersingular elliptic curves over $\mathbb{F}_{p^2}$.
+
+The core of isogeny-based cryptography lies in the \emph{isogeny graph}. The vertices of this graph are the isomorphism classes of supersingular curves, and the edges are $\ell$-isogenies between them. For a fixed prime $\ell$, the graph $\mathcal{G}_\ell$ is a Ramanujan graph, meaning it is an excellent expander graph \cite{charles2009cryptographic}. This expansion property is critical for cryptographic applications.
+
+The security of our hash function relies on the following hard problem:
+\textbf{Supersingular Isogeny Path-Finding (SIPF) Problem:} Given two supersingular curves $E_1$ and $E_2$, and a set of primes $S = \{\ell_1, \dots, \ell_n\}$, find a sequence of isogenies (a "path") of degrees from $S$ connecting $E_1$ to $E_2$.
+
+This problem is conjectured to be hard for both classical and quantum computers \cite{jao2011towards, castryck2018csidh}.
+
+% =========================================================================
+% --- SECTION 3: THE ISOGENYHASH CONSTRUCTION ---
+% =========================================================================
+\section{The IsogenyHash Construction}
+\label{sec:methods}
+
+We now present our hash function, IsogenyHash. The core idea is to use the input message $M$ to deterministically generate a pseudo-random walk on a supersingular isogeny graph $\mathcal{G}$. The hash $H(M)$ is the $j$-invariant of the final curve in the walk.
+
+\subsection{Parameter Generation}
+To define the IsogenyHash function, we must first fix a set of public parameters $\mathcal{P}$:
+\begin{enumerate}
+    \item \textbf{Prime Field:} A large prime $p$ of the form $p = \ell_A^{e_A} \ell_B^{e_B} \cdot f - 1$. For 256-bit security, we use a 768-bit prime.
+    \item \textbf{Base Curve:} A fixed, publicly known starting supersingular curve $E_0$ defined over $\mathbb{F}_{p^2}$, with $j(E_0)$ published.
+    \item \textbf{Isogeny Primes:} A set of small, distinct primes $S = \{\ell_1, \ell_2, \dots, \ell_k\}$. For our construction, we use $k=128$ primes.
+    \item \textbf{Walk Length:} A fixed number of steps $T$ in the walk. We set $T = 128$.
+\end{enumerate}
+
+\subsection{Hashing Algorithm}
+Let the input message be $M \in \{0, 1\}^*$.
+\begin{enumerate}
+    \item \textbf{Padding and Pre-processing:} The message $M$ is first hashed using a standard hash function (e.g., SHA-3-512) to produce a fixed-length digest $D = \text{SHA-3-512}(M)$.
+    \item \textbf{Seed Derivation:} The digest $D$ is split into $T$ chunks, $D = c_1 \| c_2 \| \dots \| c_T$. Each $c_i$ is 4 bits long (since $512 = 128 \times 4$).
+    \item \textbf{Initialization:} Set the current curve $E_{\text{curr}} \leftarrow E_0$.
+    \item \textbf{Isogeny Walk:} For $i = 1$ to $T$:
+    \begin{enumerate}
+        \item \textbf{Kernel Selection:} Use the chunk $c_i$ to select a small prime $\ell_j$ from $S$ (e.g., $j = (c_i \mod k)$) and to deterministically generate a point $P_i$ of order $\ell_j$ on $E_{\text{curr}}$. This generation is a critical step, which we achieve using a torsion-point generation algorithm derived from $c_i$ and a counter $i$.
+        \item \textbf{Kernel Generation:} Define the kernel $G_i = \langle P_i \rangle$.
+        \item \textbf{Isogeny Computation:} Compute the $\ell_j$-isogeny $\phi_i: E_{\text{curr}} \to E_{\text{next}}$ with $\ker(\phi_i) = G_i$. This is done using V\'{e}lu's formulas \cite{velu1971isogenies}.
+        \begin{equation}
+        E_{\text{next}} = E_{\text{curr}} / G_i
+        \label{eq:isogeny_map}
+        \end{equation}
+        \item \textbf{Update:} Set $E_{\text{curr}} \leftarrow E_{\text{next}}$.
+    \end{enumerate}
+    \item \textbf{Output:} The final hash is the $j$-invariant of the terminal curve: $H(M) = j(E_{\text{curr}})$. The $j$-invariant is an element of $\mathbb{F}_{p^2}$, which is then serialized to a fixed-length bit string.
+\end{enumerate}
+
+The mapping from the chunk $c_i$ to a unique kernel $G_i$ is non-trivial and must be carefully defined to prevent trivial collisions. We define a map $f: \{0,1\}^4 \times \mathbb{Z} \times E \to E$ such that $P_i = f(c_i, i, E_{\text{curr}})$ is a point of the correct order. The details of this map are provided in Appendix A.
+
+\subsection{Ledger Verification Protocol (SQL-based)}
+\label{sec:sql_verification}
+In certain distributed ledger applications, it is not enough to simply store the hash $H(M)$. One may need to verify the *provenance* of the hash, i.e., that it was generated according to the IsogenyHash protocol from a known starting curve $E_0$.
+
+We propose a "Trusted Verifier" model where a set of verifiers has access to a secure, replicated SQL database containing all valid supersingular $j$-invariants and their known isogeny neighbors. A new hash $H(M)$ (which is a $j$-invariant $j_T$) is submitted to the ledger along with the intermediate $j$-invariants of the walk: $J = (j_1, j_2, \dots, j_T)$.
+
+The verification algorithm, shown in Algorithm \ref{alg:sql_verify}, uses a series of interdependent SQL queries to check this path. This assumes a pre-populated database with two main tables:
+\begin{itemize}
+    \item \texttt{curves(j\_invariant\_hash PRIMARY KEY, j\_invariant\_data BLOB, is\_supersingular BOOLEAN)}
+    \item \texttt{isogeny\_edges(source\_hash, target\_hash, degree, PRIMARY KEY(source\_hash, target\_hash))}
+\end{itemize}
+
+Algorithm \ref{alg:sql_verify} describes this process. The SQL queries are highly interdependent; the result of one query (finding \texttt{prev\_j\_hash}) is used as a parameter in the next query (checking \texttt{isogeny\_edges}).
+
+\begin{algorithm}[H]
+\DontPrintSemicolon
+\SetAlgoLined
+\KwInput{Path $J = (j_1, \dots, j_T)$, Start $j_0 = j(E_0)$}
+\KwOutput{VALID or INVALID}
+\tcp{Start transaction for atomicity}
+START TRANSACTION;\;
+SET @prev\_j\_hash = SHA256(j_0);\;
+\tcp{Check that the starting curve is valid}
+SELECT is\_supersingular INTO @is\_valid FROM curves WHERE j\_invariant\_hash = @prev\_j\_hash;\;
+\lIf{@is\_valid IS NOT TRUE}{
+    ROLLBACK; \; \Return INVALID (Bad Start);
+}
+\tcp{Iterate through the submitted path}
+\For{$i = 1$ \KwTo $T$}{
+    SET @curr\_j\_hash = SHA256(j_i);\;
+    
+    \tcp{Interdependent Query: Check if an edge exists}
+    SELECT COUNT(*), degree INTO @edge\_count, @l\_degree FROM isogeny\_edges\;
+      WHERE source\_hash = @prev\_j\_hash AND target\_hash = @curr\_j\_hash;\;
+    
+    \lIf{@edge\_count = 0}{
+        ROLLBACK; \; \Return INVALID (Path broken at step i);
+    }
+    
+    \tcp{Further interdependence: In a real system, we would also verify}
+    \tcp{that @l\_degree matches the degree derived from the message $M$.}
+    \tcp{This is omitted for brevity.}
+    
+    SET @prev\_j\_hash = @curr\_j\_hash;\;
+}
+\tcp{If all checks pass, commit.}
+COMMIT;\;
+\Return VALID;
+\caption{Interdependent SQL-based Isogeny Path Verification}
+\label{alg:sql_verify}
+\end{algorithm}
+
+
+% =========================================================================
+% --- SECTION 4: SECURITY ANALYSIS ---
+% =========================================================================
+\section{Security Analysis}
+\label{sec:security}
+
+The security of IsogenyHash rests on the properties of the isogeny graph $\mathcal{G}$ and the hardness of the SIPF problem.
+
+\subsection{Pre-image Resistance}
+Finding a pre-image $M$ such that $H(M) = j_T$ (for a given $j_T$) requires finding a path of length $T$ from $E_0$ to the curve $E_T$ (where $j(E_T) = j_T$) such that the path is "well-formed" (i.e., it can be generated by some input $M$). This is a variant of the SIPF problem. Given the "meet-in-the-middle" quantum attack on isogeny paths \cite{childs2010quantum}, which runs in $O(\sqrt[4]{p})$, our choice of a 768-bit prime $p$ provides a security level of $O(p^{1/4}) \approx 2^{192}$, which is well beyond the 128-bit quantum security level.
+
+\subsection{Collision Resistance}
+Finding a collision $H(M) = H(M')$ requires finding two distinct messages $M, M'$ that generate two distinct paths, $E_0 \to \dots \to E_T$ and $E_0 \to \dots \to E'_{T}$, such that $j(E_T) = j(E'_T)$. Because the walk is deterministic, $M \neq M'$ implies the paths must diverge at some step $i < T$.
+
+This creates a "diamond" structure in the graph, where $\phi_i(E_{i-1}) \neq \phi'_i(E_{i-1})$ but the walks eventually re-converge at $E_T$. Finding such a converging path pair is conjectured to be as hard as the general SIPF problem. The best-known classical attack is the "van Oorschot-Wiener" collision search \cite{van1999parallel} on the graph, which has a complexity of $O(\sqrt{p})$.
+
+Grover's algorithm \cite{grover1996fast} could be applied to search the message space, but this provides at best a $O(2^{n/2})$ speedup for an $n$-bit output. As our output is 1536 bits (from $\mathbb{F}_{p^2}$ with $p \approx 2^{768}$), this attack is infeasible.
+
+\subsection{Resistance to SIDH-style Attacks}
+The devastating attacks on SIDH \cite{castryck2022attack} relied on the protocol's use of public "helper points" from the torsion groups. Our construction is non-interactive and reveals no such information. The kernel $G_i$ at each step is generated internally from the message digest and is never published. An attacker only sees the final $j$-invariant. To mount such an attack, the adversary would first need to solve the pre-image problem, which is already assumed to be hard.
+
+% =========================================================================
+% --- SECTION 5: PERFORMANCE AND IMPLEMENTATION ---
+% =========================================================================
+\section{Performance and Implementation}
+\label{sec:performance}
+
+To validate the practicality of IsogenyHash, we developed a reference implementation in C using the SIDH library for the underlying $\mathbb{F}_{p^2}$ and elliptic curve arithmetic. We benchmarked our implementation on a single core of an Intel Core i7-6700K (Skylake) processor clocked at 4.0 GHz.
+
+\subsection{Benchmarking Setup}
+We compared IsogenyHash (with $T=128$ steps) against the NIST standard SHA-3-512 and the high-speed BLAKE2b function. We measured performance in cycles per byte (cpb) for hashing a 1 KiB message.
+
+The results are presented in Table \ref{tab:hash_comparison}. As shown, IsogenyHash is substantially slower than traditional hash functions. This is expected, as each step of the isogeny walk involves complex $\mathbb{F}_{p^2}$ arithmetic.
+
+% --- Interdependent Table Example ---
+\begin{table}[htbp]
+  \centering
+  \caption{Performance Comparison of Hash Functions (1 KiB Input)}
+  \label{tab:hash_comparison}
+  \begin{tabular}{l c c c}
+    \toprule
+    \textbf{Function} & \textbf{Security Basis} & \textbf{Cycles/Byte} & \textbf{Relative Speed} \\
+    \midrule
+    BLAKE2b           & Merkle-Damg{\aa}rd (ARX) & 0.61 & 1.0x (Baseline) \\
+    SHA-3-512 (Keccak) & Sponge Construction      & 5.82 & 0.10x \\
+    \textbf{IsogenyHash-128} & \textbf{Isogeny (SIPF)} & \textbf{24.15} & \textbf{0.025x} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Discussion of Results}
+The performance of 24.15 cpb, while significantly slower than BLAKE2b, is well within the realm of practicality for many applications. For comparison, public-key operations like ECDSA signature verification are orders of magnitude slower. IsogenyHash is not intended to replace SHA-3 for high-speed, bulk hashing. Instead, it is designed for high-security, low-throughput applications where quantum resistance is a primary requirement, such as:
+\begin{itemize}
+    \item Hashing of firmware or software update manifests.
+    \item Deriving high-entropy keys in quantum-resistant KDFs.
+    \item Creating unique, quantum-resistant identifiers in distributed ledgers (as discussed in Section \ref{sec:sql_verification}).
+\end{itemize}
+
+The performance is dominated by the $T=128$ isogeny computations. A future optimization could be to use a "batched" approach, as seen in Figure \ref{fig:model_arch}, where multiple walks are computed in parallel for different message blocks.
+
+% --- Interdependent Figure Placeholder Example ---
+\begin{figure}[htbp]
+  \centering
+  % As per instructions, only a placeholder is used.
+  \framebox{\parbox{0.8\textwidth}{\centering
+    \vspace{5cm}
+    \textbf{Figure Placeholder} \\
+    \small\textit{This space would show a dataflow diagram of the IsogenyHash algorithm,
+    illustrating the sequential $T$-step walk from $E_0$ to $E_T$.}
+    \vspace{5cm}
+  }}
+  \caption{The sequential architecture of the IsogenyHash $T$-step walk. Each $\phi_i$ is an isogeny computed using V\'{e}lu's formulas (see Eq. \ref{eq:isogeny_map}), with its kernel $G_i$ derived from a chunk of the input message.}
+  \label{fig:model_arch}
+\end{figure}
+
+The analysis in Table \ref{tab:hash_comparison} and the model in Figure \ref{fig:model_arch} clearly show the trade-off between provable quantum-resistant security and raw performance. The interdependent nature of the walk (where $E_i$ depends on $E_{i-1}$) makes parallelization of a *single* hash computation difficult, leading to the observed latency.
+
+% =========================================================================
+% --- SECTION 6: CONCLUSION ---
+% =========================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+We have proposed IsogenyHash, a new cryptographic hash function whose security is based on the conjectured quantum-resistance of the Supersingular Isogeny Path-Finding (SIPF) problem. Our construction, detailed in Section \ref{sec:methods}, uses a deterministic walk on an isogeny graph to map an arbitrary-length message to a unique $j$-invariant.
+
+Our security analysis in Section \ref{sec:security} demonstrates strong pre-image and collision resistance, even against known quantum algorithms. This provides a valuable alternative to traditional hash functions, which are only protected by the limits of Grover's search.
+
+While our performance (Section \ref{sec:performance}) is not competitive with highly-optimized functions like BLAKE2b, it is more than sufficient for high-security applications where quantum-resistance is paramount. The novel SQL-based verification protocol in Section \ref{sec:sql_verification} also opens new avenues for provable, on-chain cryptographic attestations.
+
+Future work will focus on optimizing the kernel generation function $f(c_i, i, E)$ and exploring alternative graph structures, such as graphs of ordinary curves \cite{couveignes1997hard}, to improve performance.
+
+\clearpage
+% =========================================================================
+% --- APPENDIX ---
+% =========================================================================
+\appendix
+\section{Kernel Generation Function}
+\label{app:kernel_gen}
+
+The function $P_i = f(c_i, i, E_{\text{curr}})$ must be a deterministic, collision-resistant map from the 4-bit chunk $c_i$ and the step counter $i$ to a unique kernel $G_i = \langle P_i \rangle$ of order $\ell_j$ (where $\ell_j$ is the prime selected by $c_i$).
+
+A naive approach, such as $P_i = (i \cdot c_i) \cdot Q$ for some base point $Q$, is insecure. We construct a more robust map using a combination of hashing and point generation.
+
+Let $j(E_{\text{curr}})$ be the $j$-invariant of the current curve.
+\begin{enumerate}
+    \item \textbf{Select Prime:} Let $j = (c_i \mod k)$ and $\ell = S[j]$.
+    \item \textbf{Derive Seed:} $s_i = \text{SHA-3-256}(j(E_{\text{curr}}) \| i \| c_i)$.
+    \item \textbf{Generate Point:} Use $s_i$ as a seed to a deterministic "find-point" algorithm.
+    \begin{enumerate}
+        \item Set $x = s_i \mod p$.
+        \item While a valid point is not found:
+        \begin{enumerate}
+            \item Compute $y^2 = x^3 + Ax + B$ (using $E_{\text{curr}}$'s coefficients).
+            \item Check if $y^2$ is a quadratic residue in $\mathbb{F}_{p^2}$.
+            \item If yes, compute $y = \sqrt{y^2}$. Let $P = (x, y)$.
+            \item Check if $P$ is on $E_{\text{curr}}$ and $[\ell]P = \mathcal{O}$.
+            \item If $P \neq \mathcal{O}$ and $[\ell]P = \mathcal{O}$, we have found our point. Break.
+            \item If not, set $x = x + 1$.
+        \end{enumerate}
+    \end{enumerate}
+    \item \textbf{Return:} $P_i = P$.
+\end{enumerate}
+This process is guaranteed to terminate quickly as points of any given $\ell$-torsion are plentiful. The interdependence on $j(E_{\text{curr}})$ and $i$ ensures that the same $c_i$ value will produce different kernels at different steps of the walk, preventing simple cyclic attacks.
+
+% =========================================================================
+% --- BIBLIOGRAPHY ---
+% =========================================================================
+
+% This bibliography is interdependent with all \cite{} commands in the text.
+\begin{thebibliography}{99}
+\label{sec:bibliography}
+
+\bibitem{shor1994algorithms}
+P. W. Shor.
+"Algorithms for quantum computation: discrete logarithms and factoring."
+In \textit{Proceedings 35th Annual Symposium on Foundations of Computer Science}, pp. 124–134. IEEE, 1994.
+
+\bibitem{rivest1978method}
+R. L. Rivest, A. Shamir, and L. Adleman.
+"A method for obtaining digital signatures and public-key cryptosystems."
+\textit{Communications of the ACM}, 21(2): 120–126, 1978.
+
+\bibitem{diffie1976new}
+W. Diffie and M. E. Hellman.
+"New directions in cryptography."
+\textit{IEEE Transactions on Information Theory}, 22(6): 644–654, 1976.
+
+\bibitem{koblitz1987elliptic}
+N. Koblitz.
+"Elliptic curve cryptosystems."
+\textit{Mathematics of Computation}, 48(177): 203–209, 1987.
+
+\bibitem{miller1985use}
+V. S. Miller.
+"Use of elliptic curves in cryptography."
+In \textit{Advances in Cryptology—CRYPTO '85 Proceedings}, pp. 417–426. Springer, 1986.
+
+\bibitem{nist2019pqc}
+NIST.
+"Third PQC Standardization Conference."
+National Institute of Standards and Technology, 2021.
+
+\bibitem{lyubashevsky2011lattice}
+V. Lyubashevsky.
+"Lattice-based digital signatures."
+\textit{IACR Cryptology ePrint Archive}, 2011: 361, 2011.
+
+\bibitem{mceliece1978public}
+R. J. McEliece.
+"A public-key cryptosystem based on algebraic coding theory."
+\textit{DSN Progress Report}, 42(44): 114–116, 1978.
+
+\bibitem{bernstein2015sphincs}
+D. J. Bernstein, D. Hopwood, A. Hülsing, T. Lange, R. Niederhagen, L. Papachristodoulou, P. Schwabe, and Z. Wilcox-O'Hearn.
+"SPHINCS: practical stateless hash-based signatures."
+In \textit{Advances in Cryptology—EUROCRYPT 2015}, pp. 368–397. Springer, 2015.
+
+\bibitem{grover1996fast}
+L. K. Grover.
+"A fast quantum mechanical algorithm for database search."
+In \textit{Proceedings of the 28th Annual ACM Symposium on Theory of Computing}, pp. 212–219. ACM, 1996.
+
+\bibitem{couveignes1997hard}
+J. M. Couveignes.
+"Hard homogeneous spaces."
+Unpublished manuscript, 1997.
+
+\bibitem{jao2011towards}
+D. Jao and L. De Feo.
+"Towards quantum-resistant cryptosystems from supersingular elliptic curve isogenies."
+In \textit{Post-Quantum Cryptography}, pp. 19–34. Springer, 2011.
+
+\bibitem{castryck2018csidh}
+W. Castryck, T. Lange, F. Martindale, L. Panny, and J. Renes.
+"CSIDH: An efficient post-quantum commutative group action."
+In \textit{Advances in Cryptology—ASIACRYPT 2018}, pp. 395–427. Springer, 2018.
+
+\bibitem{castryck2022attack}
+W. Castryck and T. Decru.
+"An efficient key recovery attack on SIDH."
+\textit{IACR Cryptology ePrint Archive}, 2022: 975, 2022.
+
+\bibitem{charles2009cryptographic}
+D. X. Charles, E. Z. Goren, and K. E. Lauter.
+"Cryptographic hash functions from expander graphs."
+\textit{Journal of Cryptology}, 22(1): 93–113, 2009.
+
+\bibitem{silverman2009arithmetic}
+J. H. Silverman.
+\textit{The Arithmetic of Elliptic Curves}.
+Graduate Texts in Mathematics, vol 106. Springer, 2009.
+
+\bibitem{velu1971isogenies}
+J. V\'{e}lu.
+"Isog\'{e}nies entre courbes elliptiques."
+\textit{Comptes Rendus de l'Acad\'{e}mie des Sciences de Paris, S\'{e}rie A}, 273: 238–241, 1971.
+
+\bibitem{childs2010quantum}
+A. M. Childs, D. Jao, and V. Soukharev.
+"Constructing elliptic curve isogenies in quantum subexponential time."
+\textit{Journal of Mathematical Cryptology}, 8(1): 1–29, 2014.
+
+\bibitem{van1999parallel}
+P. C. van Oorschot and M. J. Wiener.
+"Parallel collision search with cryptanalytic applications."
+\textit{Journal of Cryptology}, 12(1): 1–28, 1999.
+
+\end{thebibliography}
+
+\end{document}
+% End of file. Approx 1100 lines.
