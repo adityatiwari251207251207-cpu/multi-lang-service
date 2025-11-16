@@ -36,7 +36,18 @@ EXT_TO_LANG = {
 }
 
 # Folders to skip
-SKIP_DIRS = {".git", ".github", "node_modules", "__pycache__", "dist", "build", ".venv", "venv"}
+SKIP_DIRS = {
+    ".git",
+    ".github",
+    "node_modules",
+    "__pycache__",
+    "dist",
+    "build",
+    ".venv",
+    "venv",
+    "converted",        # 👈 skip converted output
+}
+
 
 
 def detect_language(filename: str) -> str:
@@ -70,15 +81,16 @@ def scan_repo(root_dir: str = "."):
             language = detect_language(filename)
             kind = detect_kind(rel_path)
 
-            record = {
-                "path": rel_path.replace("\\", "/"),
-                "language": language,
-                "kind": kind,
-                "dependencies": None,
-                "has_tests": False,
-                "priority_score": 0,
-                "status": "pending",
-            }
+           record = {
+    "path": rel_path.replace("\\", "/"),
+    "language": language,
+    "kind": kind,
+    "dependencies": None,
+    "has_tests": False,
+    "priority_score": 0,
+    # 🚫 no "status" here – let DB default handle new rows
+}
+
             records.append(record)
 
     return records
