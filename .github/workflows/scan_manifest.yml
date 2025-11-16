@@ -6,6 +6,7 @@ on:
     paths:
       - "**/*.py"
       - "**/*.js"
+      - "**/*.jsx"   # NEW
       - "**/*.ts"
       - "**/*.go"
       - "**/*.java"
@@ -21,6 +22,7 @@ on:
       - "**/*.json"
       - "**/*.yml"
       - "**/*.yaml"
+      - "**/*.tex"
 
 jobs:
   scan-and-upload:
