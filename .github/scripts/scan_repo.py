@@ -14,7 +14,9 @@ FILES_TABLE_URL = f"{SUPABASE_URL}/rest/v1/files_manifest"
 EXT_TO_LANG = {
     ".py": "python",
     ".js": "javascript",
+    ".jsx": "jsx",          # NEW
     ".ts": "typescript",
+    ".tsx": "tsx",          # optional, if you ever use it
     ".go": "go",
     ".java": "java",
     ".cs": "csharp",
@@ -30,6 +32,7 @@ EXT_TO_LANG = {
     ".json": "json",
     ".yml": "yaml",
     ".yaml": "yaml",
+    ".tex": "latex",        # NEW
 }
 
 # Folders to skip
