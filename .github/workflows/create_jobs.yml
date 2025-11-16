@@ -22,5 +22,6 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          REPO_RAW_BASE_URL: ${{ secrets.REPO_RAW_BASE_URL }}   # 👈 NEW
         run: |
           python .github/scripts/create_jobs.py
