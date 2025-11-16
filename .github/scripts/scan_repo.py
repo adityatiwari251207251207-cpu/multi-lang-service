@@ -45,7 +45,8 @@ SKIP_DIRS = {
     "build",
     ".venv",
     "venv",
-    "converted",  # do not scan converted outputs
+    "converted",  # Completely skip converted output
+    "converted.py",  # Covers old accidental folder
 }
 
 
