@@ -10,13 +10,13 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
 
 FILES_TABLE_URL = f"{SUPABASE_URL}/rest/v1/files_manifest"
 
-# Simple mapping from file extensions to language names
+# Map extensions to language names
 EXT_TO_LANG = {
     ".py": "python",
     ".js": "javascript",
-    ".jsx": "jsx",          # NEW
+    ".jsx": "jsx",
     ".ts": "typescript",
-    ".tsx": "tsx",          # optional, if you ever use it
+    ".tsx": "tsx",
     ".go": "go",
     ".java": "java",
     ".cs": "csharp",
@@ -32,10 +32,10 @@ EXT_TO_LANG = {
     ".json": "json",
     ".yml": "yaml",
     ".yaml": "yaml",
-    ".tex": "latex",        # NEW
+    ".tex": "latex",
 }
 
-# Folders to skip
+# Folders to skip completely
 SKIP_DIRS = {
     ".git",
     ".github",
@@ -45,9 +45,8 @@ SKIP_DIRS = {
     "build",
     ".venv",
     "venv",
-    "converted",        # 👈 skip converted output
+    "converted",  # do not scan converted outputs
 }
-
 
 
 def detect_language(filename: str) -> str:
@@ -73,24 +72,24 @@ def scan_repo(root_dir: str = "."):
 
         for filename in filenames:
             rel_path = os.path.relpath(os.path.join(dirpath, filename), root_dir)
+            rel_path = rel_path.replace("\\", "/")
 
-            # Skip files in .github except our script if you want
+            # Skip files in .github
             if rel_path.startswith(".github/"):
                 continue
 
             language = detect_language(filename)
             kind = detect_kind(rel_path)
 
-           record = {
-    "path": rel_path.replace("\\", "/"),
-    "language": language,
-    "kind": kind,
-    "dependencies": None,
-    "has_tests": False,
-    "priority_score": 0,
-    # 🚫 no "status" here – let DB default handle new rows
-}
-
+            record = {
+                "path": rel_path,
+                "language": language,
+                "kind": kind,
+                "dependencies": None,
+                "has_tests": False,
+                "priority_score": 0,
+                # DO NOT set "status" here – let DB default handle new rows
+            }
             records.append(record)
 
     return records
@@ -105,16 +104,14 @@ def upsert_files_manifest(records):
         "apikey": SUPABASE_SERVICE_ROLE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
         "Content-Type": "application/json",
-        "Prefer": "resolution=merge-duplicates",
+        "Prefer": "resolution=merge-duplicates,return=minimal",
     }
 
-    # Supabase REST can accept batch inserts
     resp = requests.post(FILES_TABLE_URL, headers=headers, data=json.dumps(records))
-    if resp.status_code not in (200, 201, 204):
-        print("Error from Supabase:", resp.status_code, resp.text)
-        resp.raise_for_status()
-    else:
-        print(f"Uploaded {len(records)} records to files_manifest")
+    print("Supabase status:", resp.status_code)
+    print("Supabase response (first 300 chars):", resp.text[:300])
+    resp.raise_for_status()
+    print(f"Uploaded {len(records)} records to files_manifest")
 
 
 if __name__ == "__main__":
